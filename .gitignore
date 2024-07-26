@@ -1,0 +1,7 @@
+htdocs/stick_arena.php
+
+*.php
+
+*.sql
+
+ballistickemu/config.properties
