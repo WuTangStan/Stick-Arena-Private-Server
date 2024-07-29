@@ -79,14 +79,14 @@ public class PlayerCommandHandler {
 			return;
 		}
 		if (C_Splitted[0].equalsIgnoreCase("!redeemred") && client.getPass()) {
-        client.getRedeemableDb();
-        if (client.getRedeemable() > 0) {
-            client.updateRedeemable(client.getRedeemable() - 1);
-            addSpinner(client, getArgs(CommandStr, "!redeemred"), 188);
-        } else {
-            client.writeCallbackMessage("Play more games for a chance to win a lucky prize.");
-        }
-        return;
+			client.getRedeemableDb();
+			if (client.getRedeemable() > 0) {
+				client.updateRedeemable(client.getRedeemable() - 1);
+				addSpinner(client, getArgs(CommandStr, "!redeemred"), 188);
+			} else {
+				client.writeCallbackMessage("Play more games for a chance to win a lucky prize.");
+			}
+			return;
     }
 		if (C_Splitted[0].equalsIgnoreCase("!redeemorange") && client.getPass()) {
 			client.getRedeemableDb();
