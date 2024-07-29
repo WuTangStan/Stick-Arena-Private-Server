@@ -87,7 +87,7 @@ public class PlayerCommandHandler {
 				client.writeCallbackMessage("Play more games for a chance to win a lucky prize.");
 			}
 			return;
-    }
+    	}
 		if (C_Splitted[0].equalsIgnoreCase("!redeemorange") && client.getPass()) {
 			client.getRedeemableDb();
 			if (client.getRedeemable() > 0) {
