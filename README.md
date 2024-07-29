@@ -1,7 +1,16 @@
 # Stick-Arena-Private-Server
-Improved version of BallistickEMU. The original is probably entirely written by Simon but I'm not sure.
 
+Andre-Jar Base
+
+Changelog:
+
+7/28/24
+- Added rare prizes after completing a game to redeem a custom head color
+- Redeemable head colors with in-game commands
+
+## Legacy Archive Below:
 # What changed?
+
 
 - Added CredTicketHandler. You can now collect cred ticket when it's available.
 - Added DoubleLoginHandler. You can't have two of the same accounts in the same server at the same time anymore, you will be notified that somebody just logged in to your account.
