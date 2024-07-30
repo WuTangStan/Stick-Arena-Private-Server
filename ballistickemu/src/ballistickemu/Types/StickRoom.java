@@ -270,12 +270,12 @@ public class StickRoom {
     private Random random = new Random();
 
 	private void awardRandomPrize() {
-    for (StickClient client : CR.getAllClients()) {
-        if (random.nextDouble() < 0.005) {
-            givePrize(client);
-        }
-    }
-}
+		for (StickClient client : CR.getAllClients()) {
+			if (random.nextDouble() < 0.004) {
+				givePrize(client);
+			}
+		}
+	}
 
 	private void givePrize(StickClient luckyClient) {
         if (luckyClient == null) return;
