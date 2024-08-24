@@ -289,9 +289,9 @@ public class StickRoom {
 
 	private void awardRandomPrize() {
 		for (StickClient client : CR.getAllClients()) {
-			if (random.nextDouble() < 0.004) {
-				givePrize(client);
-			}
+      if (client.getGameKills() >= 3 && random.nextDouble() < 0.004) {
+            givePrize(client);
+        }
 		}
 	}
 
@@ -416,10 +416,12 @@ public class StickRoom {
 						} else {
 							loss = 1;
 						}
+
+						int killCap = Math.min(c.getGameKills(), 40);
 						PreparedStatement ps = DatabaseTools.getDbConnection()
 								.prepareStatement("UPDATE `users` SET `kills` = `kills` + ?, `deaths` = `deaths` + ?, "
 										+ "`wins` = `wins` + ?, `losses` = `losses` + ? WHERE `UID` = ?");
-						ps.setInt(1, c.getGameKills());
+						ps.setInt(1, killCap);
 						ps.setInt(2, c.getGameDeaths());
 						ps.setInt(3, win);
 						ps.setInt(4, loss);
