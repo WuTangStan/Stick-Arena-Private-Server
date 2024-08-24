@@ -50,7 +50,6 @@ public class StickRoom {
 	private Boolean isPrivate;
 	// private Timer RoomTimer;
 	private int RoundTime;
-	private int StorageKey;
 	private String MapCycleList;
 	private Boolean requiresPass;
 	private LinkedHashMap<String, StickClient> VIPs;
@@ -60,6 +59,8 @@ public class StickRoom {
 	private StickClient lastKickTarget;
 	Set<StickClient> kickVoters;
 	Set<String> totalJoinedClients;
+
+	public static char[] dont_auto_close = new char[]{'z'};
 
 	public StickRoom() {
 		this.CR = new StickClientRegistry(false);
@@ -72,9 +73,7 @@ public class StickRoom {
 		this.CycleMode = CM;
 		this.isPrivate = Priv;
 		this.RoundTime = 300;
-		// this.RoomTimer = new Timer();
 		this.CR = new StickClientRegistry(false);
-		// this.RoomTimer.scheduleAtFixedRate(new OnTimedEvent(), 1000, 1000);
 		this.VIPs = VIPs;
 		this.requiresPass = needsPass;
 		this.VIPLock = new ReentrantReadWriteLock();
@@ -167,9 +166,6 @@ public class StickRoom {
 		return this.RoundTime;
 	}
 
-	public int getStorageKey() {
-		return this.StorageKey;
-	}
 
 	public String getMapCycleList() {
 		if (this.MapCycleList != null)
@@ -182,10 +178,6 @@ public class StickRoom {
 		return totalJoinedClients;
 	}
 
-	public void setStorageKey(int key) {
-		this.StorageKey = key;
-	}
-
 	public void setNeedsPass(Boolean NeedsPass) {
 		this.requiresPass = NeedsPass;
 	}
@@ -193,12 +185,8 @@ public class StickRoom {
 	public void killRoom() {
 		this.CR.ClientsLock.writeLock().lock();
 		try {
-			for (StickClient SC : this.CR.getAllClients()) {
-				SC.write(StickPacketMaker.getErrorPacket("5"));
-				CR.deregisterClient(SC);
-			}
-			Main.getLobbyServer().getRoomRegistry()
-					.deRegisterRoom(Main.getLobbyServer().getRoomRegistry().GetRoomFromName(Name));
+		BootPlayers("5", false);
+		Shutdown();
 		} finally {
 			this.CR.ClientsLock.writeLock().unlock();
 		}
@@ -242,28 +230,58 @@ public class StickRoom {
 		}
 	}
 
-	/*
-	 * public RoomTimer getStickRoomTimer() { return this.Timer; }
-	 */
+	/* not dealing with CR.deregisterClient dumbass conditions
+	if map id isnt custom game i.e featured, allow people to stay
+	you can also check if the remaining player(s) have labpass and if not close the game
+	i dont feel like writing that */
+	public void OnPlayerLeave(StickClient player) {
+		CR.getClientsList().remove(player.getName());
+		player.setRoom(null);
+		if (usesCustomMap() && CreatorName.equalsIgnoreCase(player.getName())) {
+			BootPlayers("2", true);
+		}
+
+		// deregister game.
+		if (CR.getClientsList().isEmpty()) {
+			Shutdown();
+		}
+	}
+
+	// ported irrelevant method from elysium
+	public void BootPlayers(String rsp, boolean excludeCreator) {
+		for (StickClient boot : CR.getAllClients()) {
+			if (excludeCreator && boot.getName().equalsIgnoreCase(CreatorName))
+				continue;
+
+			boot.write(StickPacketMaker.getErrorPacket(rsp));
+			CR.getClientsList().remove(boot.getName());
+		} 
+	}
+
+	public void Shutdown() {
+		Main.getLobbyServer().getRoomRegistry().deRegisterRoom(Name);
+	}
+
+	// lifted from sa source
+	public boolean isLabpassMap() {
+		return MapID.charAt(0) >= 31 && MapID.charAt(0) <= 42;
+	}
 
 	class OnTimedEvent implements Runnable {
 		public void run() {
 			if (CR.getAllClients().isEmpty()) {
-				Main.getLobbyServer().getRoomRegistry()
-						.deRegisterRoom(Main.getLobbyServer().getRoomRegistry().GetRoomFromName(Name));
+				Shutdown();
 				updateJoinedClients();
 				Thread.currentThread().interrupt();
 				return;
 			}
 
-			if (RoundTime > 0)
-				RoundTime = (RoundTime - 1);
-			else
-				RoundTime = 270;
-			if (RoundTime == 1) {
-				RoundTime = 300;
-				updateStats(getWinner());
-				awardRandomPrize();
+			if (RoundTime > -29) {
+				RoundTime--;
+
+				if (RoundTime == -26)
+					updateStats(getWinner());
+					awardRandomPrize();
 			}
 		}
 
