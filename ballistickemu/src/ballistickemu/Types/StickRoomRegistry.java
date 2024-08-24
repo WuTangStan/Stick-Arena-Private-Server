@@ -11,12 +11,12 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class StickRoomRegistry {
-	private LinkedHashMap<String, StickRoom> RoomList;
-	private Map<String, ScheduledFuture<?>> executors = new HashMap<>();
+	private LinkedHashMap<Integer, StickRoom> RoomList;
+	private Map<String, ScheduledFuture<?>> futureMap = new HashMap<>();
 	private ScheduledExecutorService STP;
 	public ReentrantReadWriteLock RoomLock = new ReentrantReadWriteLock(true);
 
-	public LinkedHashMap<String, StickRoom> getRoomList() {
+	public LinkedHashMap<Integer, StickRoom> getRoomList() {
 		return this.RoomList;
 	}
 
@@ -33,30 +33,36 @@ public class StickRoomRegistry {
 		this.RoomLock.writeLock().lock();
 
 		try {
-			this.RoomList.put(room.getName(), room);
+			room.setStorageKey(this.RoomList.size());
+			this.RoomList.put(this.RoomList.size(), room);
 
 		} finally {
 			this.RoomLock.writeLock().unlock();
 		}
 	}
-	
-	public void deRegisterRoom(String name) {
+
+	public void deRegisterRoom(StickRoom room) {
 		this.RoomLock.writeLock().lock();
 		try {
-			RoomList.remove(name);
-			executors.get(name).cancel(true);
-			executors.remove(name);
+			for (StickRoom R : GetAllRooms()) {
+				if ((room != null) && (room.equals(R))) {
+					this.RoomList.remove(room.getStorageKey());
+					this.futureMap.get(room.getName()).cancel(true);
+					this.futureMap.remove(room.getName());
+					break;
+				}
+			}
 		} finally {
 			this.RoomLock.writeLock().unlock();
 		}
 	}
 
 	public void scheduleRoomTimer(String name, Runnable r) {
-		executors.put(name, this.STP.scheduleAtFixedRate(r, 0L, 1L, TimeUnit.SECONDS));
+		futureMap.put(name, this.STP.scheduleAtFixedRate(r, 0L, 1L, TimeUnit.SECONDS));
 	}
 
 	public boolean RoomExists(String Name) {
-		return !(GetRoomFromName(Name) == null);
+		return GetRoomFromName(Name) == null;
 	}
 
 	public StickRoom GetRoomFromName(String Name) {

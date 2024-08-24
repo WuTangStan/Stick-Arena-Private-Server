@@ -46,7 +46,8 @@ public class NewClientHandler {
 			if ((client.getRequiresUpdate())) {
 				client.getPassDb();
 				if (client.getRoom() != null) {
-					client.getRoom().OnPlayerLeave(client);
+					client.getRoom().GetCR().deregisterClient(client);
+					client.setRoom(null);
 					client.setLobbyStatus(true);
 				}
 
