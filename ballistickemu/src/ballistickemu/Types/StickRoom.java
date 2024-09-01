@@ -435,11 +435,11 @@ public class StickRoom {
 	public boolean isFull(StickClient client) {
 		int numPlayers = this.CR.getAllClients().size();
 		if (client.getPass() || getNeedsPass()) {
-			if (numPlayers > 5) {
+			if (numPlayers >= 12) {
 				return true;
 			}
 		} else {
-			if (numPlayers > 3) {
+			if (numPlayers >= 12) {
 				return true;
 			}
 		}
