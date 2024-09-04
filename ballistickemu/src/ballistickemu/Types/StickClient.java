@@ -69,7 +69,6 @@ public class StickClient {
 	private boolean IsRequiresUpdate;
 	private int redeemable;
 	private LinkedHashMap<Integer, StickItem> Inventory;
-	private boolean receivingPolicy=false;
 	public ReentrantReadWriteLock InventoryLock = new ReentrantReadWriteLock(true);
 
 	/**
@@ -417,15 +416,6 @@ public class StickClient {
 
 	public LinkedHashMap<Integer, StickItem> getInventory() {
 		return this.Inventory;
-	}
-
-	public void setReceivingPolicy(boolean receivingPolicy) {
-		this.receivingPolicy=receivingPolicy;
-	}
-
-	public boolean isReceivingPolicy()
-	{
-		return receivingPolicy;
 	}
 
 	public void write(StickPacket Packet) {
