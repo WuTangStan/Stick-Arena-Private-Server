@@ -73,8 +73,11 @@ public class StickClientRegistry {
 				this.ClientsLock.writeLock().unlock();
 			}
 			LOGGER.info("User " + client.getName() + " being deregistered from main registry.");
-			Main.getLobbyServer().BroadcastPacket(StickPacketMaker.Disconnected(client.getUID()));
-		} else if (client.getRoom() != null) {
+			if(!client.isReceivingPolicy()) {
+					// do not send disconnect package after the connection for the policy file gets closed
+					Main.getLobbyServer().BroadcastPacket(StickPacketMaker.Disconnected(client.getUID()));
+				}
+			} else if (client.getRoom() != null) {
 			StickRoom room = client.getRoom();
 			if (room.getCreatorName().equals(client.getName())) {
 				if (room.usesCustomMap()) {
