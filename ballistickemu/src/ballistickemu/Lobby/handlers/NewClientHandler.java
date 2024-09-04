@@ -37,7 +37,6 @@ public class NewClientHandler {
 
 	public static void HandlePacket(StickClient client, String Packet) {
 		if (Packet.substring(0, 3).equalsIgnoreCase("03_")) {
-			client.setReceivingPolicy(false);
 			if ((client.getQuickplayStatus()) || (client.getName() == null)) // no QP chars in lobby thanks
 			{
 				client.getIoSession().close(true);
@@ -72,6 +71,7 @@ public class NewClientHandler {
 								client.getSelectedSpinner().getColour().getColour1AsString(), client.getKills(),
 								client.getDeaths(), client.getWins(), client.getLosses(), client.getRounds(), pass,
 								client.getUserLevel()));
+				client.write(StickPacketMaker.getLoginFailed());
 			}
 			client.setLobbyStatus(true);
 		} else // joining a room

@@ -19,7 +19,6 @@
  */
 package ballistickemu.Types;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -62,7 +61,7 @@ public class StickClientRegistry {
 			this.ClientsLock.writeLock().unlock();
 		}
 	}
-	
+
 	public void deregisterClient(StickClient client) {
 		if (client.getLobbyStatus() && this.isLobby) {
 			// only allow access if another thread isn't reading the resource
@@ -73,42 +72,34 @@ public class StickClientRegistry {
 				this.ClientsLock.writeLock().unlock();
 			}
 			LOGGER.info("User " + client.getName() + " being deregistered from main registry.");
-			if(!client.isReceivingPolicy()) {
-					// do not send disconnect package after the connection for the policy file gets closed
-					Main.getLobbyServer().BroadcastPacket(StickPacketMaker.Disconnected(client.getUID()));
-				}
-			} else if (client.getRoom() != null) {
+			Main.getLobbyServer().BroadcastPacket(StickPacketMaker.Disconnected(client.getUID()));
+		} else if (client.getRoom() != null) {
 			StickRoom room = client.getRoom();
 			if (room.getCreatorName().equals(client.getName())) {
 				if (room.usesCustomMap()) {
-					this.ClientsLock.writeLock().lock();
-					ArrayList<StickClient> ToDC = new ArrayList<>();
-					for(StickClient c:this.getAllClients()) {
-						if (!c.getLobbyStatus()) {
-							ToDC.add(c);
+					for (StickClient c : room.GetCR().Clients.values()) {
+						if (!c.getName().equals(client.getName())) {
+							c.write(StickPacketMaker.getErrorPacket("2"));
+							room.GetCR().deregisterClient(c);
+							try {
+								Thread.sleep(100); // Clients don't properly update without waiting somehow
+							} catch (InterruptedException e) {
+								LOGGER.warn("Failed to wait to kick remaining players in a custom map room.");
+							}
 						}
 					}
-					this.ClientsLock.writeLock().unlock();
-					for (StickClient c : ToDC) {
-						this.deregisterClient(c);
-						c.write(StickPacketMaker.getErrorPacket("2"));
-					}
-					ToDC.removeAll(ToDC);
 				} else if (room.getNeedsPass()) {
-					room.getVIPs().clear();
-					this.ClientsLock.writeLock().lock();
-					ArrayList<StickClient> ToDC = new ArrayList<>();
-					for(StickClient c:this.getAllClients()) {
-						if (!c.getPass() && !c.getLobbyStatus()) {
-							ToDC.add(c);
+					for (StickClient c : room.GetCR().Clients.values()) {
+						if (!c.getPass()) {
+							c.write(StickPacketMaker.getErrorPacket("2"));
+							room.GetCR().deregisterClient(c);
+							try {
+								Thread.sleep(100); // Clients don't properly update without waiting somehow
+							} catch (InterruptedException e) {
+								LOGGER.warn("Failed to wait to kick remaining non-VIP players.");
+							}
 						}
 					}
-					this.ClientsLock.writeLock().unlock();
-					for (StickClient c : ToDC) {
-						this.deregisterClient(c);
-						c.write(StickPacketMaker.getErrorPacket("2"));
-					}
-					ToDC.removeAll(ToDC);
 				}
 
 			}
