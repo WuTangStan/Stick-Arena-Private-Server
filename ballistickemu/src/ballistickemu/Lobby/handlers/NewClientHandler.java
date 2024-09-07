@@ -37,12 +37,12 @@ public class NewClientHandler {
 
 	public static void HandlePacket(StickClient client, String Packet) {
 		if (Packet.substring(0, 3).equalsIgnoreCase("03_")) {
+			client.setReceivingPolicy(false);
 			if ((client.getQuickplayStatus()) || (client.getName() == null)) // no QP chars in lobby thanks
 			{
 				client.getIoSession().close(true);
 				return;
 			}
-
 			if ((client.getRequiresUpdate())) {
 				client.getPassDb();
 				if (client.getRoom() != null) {
@@ -50,7 +50,6 @@ public class NewClientHandler {
 					client.setRoom(null);
 					client.setLobbyStatus(true);
 				}
-
 				Main.getLobbyServer().BroadcastPacket(StickPacketMaker.getNewPlayerUID(client.getUID()));
 				client.write(StickPacketMaker.getUserList(Main.getLobbyServer().getClientRegistry(), client.getUID(),
 						true, client));
@@ -59,7 +58,6 @@ public class NewClientHandler {
 								client.getSelectedSpinner().getColour().getColour1AsString(), client.getKills(),
 								client.getDeaths(), client.getWins(), client.getLosses(), client.getRounds(),
 								client.getPass() ? 1 : 0, client.getUserLevel()), true, client.getUID());
-
 				client.setRequiresUpdate(false);
 			} else { // this happens when someone's come back from the shop / profile page - update
 						// with any changes made there
@@ -71,7 +69,6 @@ public class NewClientHandler {
 								client.getSelectedSpinner().getColour().getColour1AsString(), client.getKills(),
 								client.getDeaths(), client.getWins(), client.getLosses(), client.getRounds(), pass,
 								client.getUserLevel()));
-				client.write(StickPacketMaker.getLoginFailed());
 			}
 			client.setLobbyStatus(true);
 		} else // joining a room
