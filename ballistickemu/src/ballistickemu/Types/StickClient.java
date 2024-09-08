@@ -67,8 +67,9 @@ public class StickClient {
 	private boolean IsBlended;
 	private boolean IsQuickplayChar;
 	private boolean IsRequiresUpdate;
-	private LinkedHashMap<Integer, StickItem> Inventory;
+	private int redeemable;
 	private boolean receivingPolicy=false;
+	private LinkedHashMap<Integer, StickItem> Inventory;
 	public ReentrantReadWriteLock InventoryLock = new ReentrantReadWriteLock(true);
 
 	/**
@@ -96,6 +97,14 @@ public class StickClient {
 
 	public StickClient() {
 	}
+
+	public void setRedeemable(int redeemable) {
+        this.redeemable = redeemable;
+    }
+
+    public int getRedeemable() {
+        return this.redeemable;
+    }
 
 	// SET
 	/**
@@ -616,4 +625,32 @@ public class StickClient {
 		this.name = QuickplayTool.getRandomName();
 		this.Inventory = QuickplayTool.getRandomInventory();
 	}
+
+    public int getRedeemableDb() {
+        try {
+            PreparedStatement ps = DatabaseTools.getDbConnection()
+                    .prepareStatement("SELECT redeemable FROM users WHERE UID = ?");
+            ps.setInt(1, this.getDbID());
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                this.redeemable = rs.getInt("redeemable");
+            }
+        } catch (SQLException e) {
+            LOGGER.warn("Exception retrieving redeemable value for user " + this.getUID() + ". Exception thrown: ", e);
+        }
+        return this.redeemable;
+    }
+
+    public void updateRedeemable(int newValue) {
+        try {
+            PreparedStatement ps = DatabaseTools.getDbConnection().prepareStatement(
+                "UPDATE users SET redeemable = ? WHERE UID = ?");
+            ps.setInt(1, newValue);
+            ps.setInt(2, this.getDbID());
+            ps.executeUpdate();
+            this.redeemable = newValue;
+        } catch (SQLException e) {
+            LOGGER.warn("Exception updating redeemable value for user " + this.getUID() + ". Exception thrown: ", e);
+        }
+    }
 }

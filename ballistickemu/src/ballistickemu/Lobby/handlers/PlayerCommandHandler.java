@@ -33,11 +33,11 @@ public class PlayerCommandHandler {
 	{
 		String[] C_Splitted = CommandStr.replaceAll("\0", "").split(" ");
 
-		if (C_Splitted[0].equalsIgnoreCase("!setcolor") && client.getModStatus()) {
+		if (C_Splitted[0].equalsIgnoreCase("!setcolor") && client.getPass()) {
 			setNewColor(client, getArgs(CommandStr, "!setcolor"), false);
 			return;
 		}
-		if (C_Splitted[0].equalsIgnoreCase("!setpetcolor") && client.getModStatus()) {
+		if (C_Splitted[0].equalsIgnoreCase("!setpetcolor") && client.getPass()) {
 			setNewColor(client, getArgs(CommandStr, "!setpetcolor"), true);
 			return;
 		}
@@ -63,6 +63,79 @@ public class PlayerCommandHandler {
 		}
 		if ((C_Splitted[0].equalsIgnoreCase("!modspinner")) && (client.getModStatus())) {
 			addSpinner(client, getArgs(CommandStr, "!modspinner"), 183);
+			return;
+		}
+		if (C_Splitted[0].equalsIgnoreCase("!redeem") && client.getPass()) {
+			client.writeCallbackMessage("!redeempurple or: red, orange, yellow, green, white, sharigan");
+		}
+		if (C_Splitted[0].equalsIgnoreCase("!redeempurple") && client.getPass()) {
+			client.getRedeemableDb();
+			if (client.getRedeemable() > 0) {
+				client.updateRedeemable(client.getRedeemable() - 1);
+				addSpinner(client, getArgs(CommandStr, "!redeempurple"), 187);
+			} else {
+				client.writeCallbackMessage("Play more games for a chance to win a lucky prize.");
+			}
+			return;
+		}
+		if (C_Splitted[0].equalsIgnoreCase("!redeemred") && client.getPass()) {
+			client.getRedeemableDb();
+			if (client.getRedeemable() > 0) {
+				client.updateRedeemable(client.getRedeemable() - 1);
+				addSpinner(client, getArgs(CommandStr, "!redeemred"), 188);
+			} else {
+				client.writeCallbackMessage("Play more games for a chance to win a lucky prize.");
+			}
+			return;
+    	}
+		if (C_Splitted[0].equalsIgnoreCase("!redeemorange") && client.getPass()) {
+			client.getRedeemableDb();
+			if (client.getRedeemable() > 0) {
+				client.updateRedeemable(client.getRedeemable() - 1);
+				addSpinner(client, getArgs(CommandStr, "!redeemorange"), 189);
+			} else {
+				client.writeCallbackMessage("Play more games for a chance to win a lucky prize.");
+			}
+			return;
+		}
+		if (C_Splitted[0].equalsIgnoreCase("!redeemyellow") && client.getPass()) {
+			client.getRedeemableDb();
+			if (client.getRedeemable() > 0) {
+				client.updateRedeemable(client.getRedeemable() - 1);
+				addSpinner(client, getArgs(CommandStr, "!redeemyellow"), 190);
+			} else {
+				client.writeCallbackMessage("Play more games for a chance to win a lucky prize.");
+			}
+			return;
+		}
+		if (C_Splitted[0].equalsIgnoreCase("!redeemgreen") && client.getPass()) {
+			client.getRedeemableDb();
+			if (client.getRedeemable() > 0) {
+				client.updateRedeemable(client.getRedeemable() - 1);
+				addSpinner(client, getArgs(CommandStr, "!redeemgreen"), 191);
+			} else {
+				client.writeCallbackMessage("Play more games for a chance to win a lucky prize.");
+			}
+			return;
+		}
+		if (C_Splitted[0].equalsIgnoreCase("!redeemwhite") && client.getPass()) {
+			client.getRedeemableDb();
+			if (client.getRedeemable() > 0) {
+				client.updateRedeemable(client.getRedeemable() - 1);
+				addSpinner(client, getArgs(CommandStr, "!redeemwhite"), 192);
+			} else {
+				client.writeCallbackMessage("Play more games for a chance to win a lucky prize");
+			}
+			return;
+		}
+		if (C_Splitted[0].equalsIgnoreCase("!redeemsharingan") && client.getPass()) {
+			client.getRedeemableDb();
+			if (client.getRedeemable() > 0) {
+				client.updateRedeemable(client.getRedeemable() - 1);
+				addSpinner(client, getArgs(CommandStr, "!redeemsharingan"), 193);
+			} else {
+				client.writeCallbackMessage("Play more games for a chance to win a lucky prize");
+			}
 			return;
 		}
 		if (C_Splitted[0].equalsIgnoreCase("!setkills") && C_Splitted.length > 1 && client.getModStatus()) {
@@ -182,8 +255,7 @@ public class PlayerCommandHandler {
 
 	}
 
-	private static void addSpinner(StickClient client, String[] colour, int itemID) // fyi "colour" is british spelling
-																					// of "color"
+	private static void addSpinner(StickClient client, String[] colour, int itemID) // fyi "colour" is british spelling	of "color"
 	{
 		if ((itemID == 184) || (itemID == 185)) // candy cane and heart spinners are not customisable.
 		{ // set the colours to default so user does not have to enter a colour
@@ -196,6 +268,41 @@ public class PlayerCommandHandler {
 			String[] defCol = { "002", "101", "203", "002", "101", "203" }; // red and white, doesn't matter as they
 																			// would be same anyways but good for lobby
 																			// cols etc
+			colour = defCol;
+		}
+
+		if (itemID == 187) {
+			String[] defCol = { "161", "12", "236", "161", "12", "236" };
+			colour = defCol;
+		}
+
+		if (itemID == 188) {
+			String[] defCol = { "155", "-99", "-99", "155", "-99", "-99" };
+			colour = defCol;
+		}
+
+		if (itemID == 189) {
+			String[] defCol = { "155", "65", "-99", "155", "65", "-99" };
+			colour = defCol;
+		}
+
+		if (itemID == 190) {
+			String[] defCol = { "155", "155", "-99", "155", "155", "-99" };
+			colour = defCol;
+		}
+
+		if (itemID == 191) {
+			String[] defCol = { "-99", "155", "-99", "-99", "155", "-99" };
+			colour = defCol;
+		}
+
+		if (itemID == 192) {
+			String[] defCol = { "255", "255", "255", "255", "255", "255" };
+			colour = defCol;
+		}
+
+		if (itemID == 193) {
+			String[] defCol = { "28", "-99", "-99", "28", "-99", "-99" };
 			colour = defCol;
 		}
 
@@ -251,7 +358,6 @@ public class PlayerCommandHandler {
 		} catch (SQLException e) {
 			LOGGER.warn("Exception changing colour of user " + client.getName() + ". Exception thrown: ", e);
 		}
-
 	}
 
 	private static Boolean verifyColourInput(StickClient client, String[] colour) {

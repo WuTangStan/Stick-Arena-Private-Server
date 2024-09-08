@@ -19,6 +19,7 @@
  */
 package ballistickemu.Types;
 
+import java.util.Random;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -191,18 +192,16 @@ public class StickRoom {
 
 	public void killRoom() {
 		this.CR.ClientsLock.writeLock().lock();
-		ArrayList<StickClient> ToDC = new ArrayList<>();
-		for(StickClient c:this.CR.getAllClients()) {
-			if (!c.getLobbyStatus()) {
-				ToDC.add(c);
+		try {
+			for (StickClient SC : this.CR.getAllClients()) {
+				SC.write(StickPacketMaker.getErrorPacket("5"));
+				CR.deregisterClient(SC);
 			}
+			Main.getLobbyServer().getRoomRegistry()
+					.deRegisterRoom(Main.getLobbyServer().getRoomRegistry().GetRoomFromName(Name));
+		} finally {
+			this.CR.ClientsLock.writeLock().unlock();
 		}
-		this.CR.ClientsLock.writeLock().unlock();
-		for (StickClient c : ToDC) {
-			this.CR.deregisterClient(c);
-			c.write(StickPacketMaker.getErrorPacket("5"));
-		}
-		ToDC.removeAll(ToDC);
 	}
 
 	public LinkedHashMap<String, StickClient> getVIPs() {
@@ -256,14 +255,48 @@ public class StickRoom {
 				Thread.currentThread().interrupt();
 				return;
 			}
+
 			RoundTime = (RoundTime - 1);
 			if (RoundTime == -1) {
 				updateStats(getWinner());
+				awardRandomPrize();
 			} 
 			if(RoundTime <=-30) {
 				RoundTime = 300;
 			}
 		}
+
+    private Random random = new Random();
+
+	private void awardRandomPrize() {
+		for (StickClient client : CR.getAllClients()) {
+			if (client.getGameKills() >= 3 && random.nextDouble() < 0.004) {
+				givePrize(client);
+			}
+		}
+	}
+
+	private void givePrize(StickClient luckyClient) {
+        if (luckyClient == null) return;
+
+        try {
+            PreparedStatement ps = DatabaseTools.getDbConnection()
+                    .prepareStatement("UPDATE users SET redeemable = redeemable + 1 WHERE UID = ?");
+            ps.setInt(1, luckyClient.getDbID());
+            int updatedRows = ps.executeUpdate();
+            if (updatedRows > 0) {
+                LOGGER.info("Prize awarded to user: " + luckyClient.getName());
+				luckyClient.writeCallbackMessage("You have won a rare prize! Speak to a moderator to claim it");
+				Main.getLobbyServer().BroadcastAnnouncement2(luckyClient.getName() + " has won a rare prize!");
+
+            } else {
+                LOGGER.warn("Failed to update redeemable count for user: " + luckyClient.getName());
+            }
+			
+        } catch (SQLException e) {
+            LOGGER.error("SQL Exception when trying to award prize: ", e);
+        }
+    }
 
 		private void updateJoinedClients() {
 			try {
@@ -364,10 +397,12 @@ public class StickRoom {
 						} else {
 							loss = 1;
 						}
+
+						int killCap = Math.min(c.getGameKills(), 40);
 						PreparedStatement ps = DatabaseTools.getDbConnection()
 								.prepareStatement("UPDATE `users` SET `kills` = `kills` + ?, `deaths` = `deaths` + ?, "
 										+ "`wins` = `wins` + ?, `losses` = `losses` + ? WHERE `UID` = ?");
-						ps.setInt(1, c.getGameKills());
+						ps.setInt(1, killCap);
 						ps.setInt(2, c.getGameDeaths());
 						ps.setInt(3, win);
 						ps.setInt(4, loss);
@@ -401,11 +436,11 @@ public class StickRoom {
 	public boolean isFull(StickClient client) {
 		int numPlayers = this.CR.getAllClients().size();
 		if (client.getPass() || getNeedsPass()) {
-			if (numPlayers > 5) {
+			if (numPlayers >= 12) {
 				return true;
 			}
 		} else {
-			if (numPlayers > 3) {
+			if (numPlayers >= 12) {
 				return true;
 			}
 		}
