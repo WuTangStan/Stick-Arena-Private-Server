@@ -69,7 +69,6 @@ public class StickNetworkHandler extends IoHandlerAdapter {
 		if (c_Client == null)
 			return;
 		if (S.equalsIgnoreCase("<policy-file-request/>")) {
-      c_Client.setReceivingPolicy(true);
 			c_Client.writePolicyFile();
 			return;
 		}
