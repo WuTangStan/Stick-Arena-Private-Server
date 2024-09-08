@@ -18,7 +18,6 @@
  *     the Free Software Foundation, Inc., 59 Temple Place,
  */
 package ballistickemu.Types;
-
 import java.util.Random;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -192,16 +191,18 @@ public class StickRoom {
 
 	public void killRoom() {
 		this.CR.ClientsLock.writeLock().lock();
-		try {
-			for (StickClient SC : this.CR.getAllClients()) {
-				SC.write(StickPacketMaker.getErrorPacket("5"));
-				CR.deregisterClient(SC);
+		ArrayList<StickClient> ToDC = new ArrayList<>();
+		for(StickClient c:this.CR.getAllClients()) {
+			if (!c.getLobbyStatus()) {
+				ToDC.add(c);
 			}
-			Main.getLobbyServer().getRoomRegistry()
-					.deRegisterRoom(Main.getLobbyServer().getRoomRegistry().GetRoomFromName(Name));
-		} finally {
-			this.CR.ClientsLock.writeLock().unlock();
 		}
+		this.CR.ClientsLock.writeLock().unlock();
+		for (StickClient c : ToDC) {
+			this.CR.deregisterClient(c);
+			c.write(StickPacketMaker.getErrorPacket("5"));
+		}
+		ToDC.removeAll(ToDC);
 	}
 
 	public LinkedHashMap<String, StickClient> getVIPs() {
@@ -255,19 +256,17 @@ public class StickRoom {
 				Thread.currentThread().interrupt();
 				return;
 			}
-
-			if (RoundTime > 0)
-				RoundTime = (RoundTime - 1);
-			else
-				RoundTime = 270;
-			if (RoundTime == 1) {
-				RoundTime = 300;
+			RoundTime = (RoundTime - 1);
+			if (RoundTime == -1) {
 				updateStats(getWinner());
 				awardRandomPrize();
+			} 
+			if(RoundTime <=-30) {
+				RoundTime = 300;
 			}
 		}
-
-    private Random random = new Random();
+		
+		  private Random random = new Random();
 
 	private void awardRandomPrize() {
 		for (StickClient client : CR.getAllClients()) {
@@ -298,7 +297,6 @@ public class StickRoom {
             LOGGER.error("SQL Exception when trying to award prize: ", e);
         }
     }
-
 		private void updateJoinedClients() {
 			try {
 				for (String s : totalJoinedClients) {
