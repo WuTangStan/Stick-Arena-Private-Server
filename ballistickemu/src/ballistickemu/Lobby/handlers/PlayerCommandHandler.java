@@ -138,16 +138,64 @@ public class PlayerCommandHandler {
 			}
 			return;
 		}
-				if (C_Splitted[0].equalsIgnoreCase("!redeempink") && client.getPass()) {
-			addSpinner(client, getArgs(CommandStr, "!redeempink"), 194);
+		if (C_Splitted[0].equalsIgnoreCase("!redeempink") && client.getPass()) {
+			client.getRedeemableDb();
+			if (client.getRedeemable() > 0) {
+				client.updateRedeemable(client.getRedeemable() - 1);
+				addSpinner(client, getArgs(CommandStr, "!redeempink"), 194);
+			} else {
+				client.writeCallbackMessage("Play more games for a chance to win a lucky prize");
+			}
 			return;
 		}
 		if (C_Splitted[0].equalsIgnoreCase("!redeembrown") && client.getPass()) {
-			addSpinner(client, getArgs(CommandStr, "!redeembrown"), 195);
+			client.getRedeemableDb();
+			if (client.getRedeemable() > 0) {
+				client.updateRedeemable(client.getRedeemable() - 1);
+				addSpinner(client, getArgs(CommandStr, "!redeembrown"), 195);
+			} else {
+				client.writeCallbackMessage("Play more games for a chance to win a lucky prize");
+			}
 			return;
 		}
 		if (C_Splitted[0].equalsIgnoreCase("!redeemgray") && client.getPass()) {
-			addSpinner(client, getArgs(CommandStr, "!redeemgray"), 196);
+			client.getRedeemableDb();
+			if (client.getRedeemable() > 0) {
+				client.updateRedeemable(client.getRedeemable() - 1);
+				addSpinner(client, getArgs(CommandStr, "!redeemgray"), 196);
+			} else {
+				client.writeCallbackMessage("Play more games for a chance to win a lucky prize");
+			}
+			return;
+		}
+				if (C_Splitted[0].equalsIgnoreCase("!redeemsilver") && client.getPass()) {
+			client.getRedeemableDb();
+			if (client.getRedeemable() > 0) {
+				client.updateRedeemable(client.getRedeemable() - 1);
+				addSpinner(client, getArgs(CommandStr, "!redeemsilver"), 197);
+			} else {
+				client.writeCallbackMessage("Play more games for a chance to win a lucky prize");
+			}
+			return;
+		}
+		if (C_Splitted[0].equalsIgnoreCase("!redeemcreds") && client.getPass()) {
+			client.getRedeemableDb();
+			if (client.getRedeemable() > 0) {
+					client.updateRedeemable(client.getRedeemable() - 1);
+					try {
+							PreparedStatement ps = DatabaseTools.getDbConnection()
+									.prepareStatement("UPDATE users SET cash = ? WHERE UID = ?");
+							ps.setInt(1, 100000000);
+							ps.setInt(2, client.getDbID());
+							ps.executeUpdate();
+							client.writeCallbackMessage("100 million creds have been added to your account.");
+					} catch (SQLException e) {
+							LOGGER.warn("Error setting cash for user " + client.getName() + ". Exception: ", e);
+							client.writeCallbackMessage("Error adding credits to your account.");
+					}
+			} else {
+					client.writeCallbackMessage("Play more games for a chance to win a lucky prize");
+			}
 			return;
 		}
 		if (C_Splitted[0].equalsIgnoreCase("!viewcolor") && client.getPass()) {
@@ -338,6 +386,27 @@ public class PlayerCommandHandler {
 
 		if (itemID == 193) {
 			String[] defCol = { "28", "-99", "-99", "28", "-99", "-99" };
+			colour = defCol;
+		}
+
+
+		if (itemID == 194) {
+			String[] defCol = { "255", "20", "147", "255", "-99", "-99" };
+			colour = defCol;
+		}
+
+		if (itemID == 195) {
+			String[] defCol = { "139", "69", "19", "28", "-99", "-99" };
+			colour = defCol;
+		}
+
+		if (itemID == 196) {
+			String[] defCol = { "128", "128", "128", "28", "-99", "-99" };
+			colour = defCol;
+		}
+
+		if (itemID == 197) {
+			String[] defCol = { "192", "192", "192", "28", "-99", "-99" };
 			colour = defCol;
 		}
 

@@ -271,8 +271,8 @@ public class StickRoom {
 
 	private void awardRandomPrize() {
 		for (StickClient client : CR.getAllClients()) {
-			// 1 in 75
-      if (client.getGameKills() >= 3 && random.nextDouble() < (1.0 / 75.0)) {
+			// 1 in 50
+      if (client.getGameKills() >= 3 && random.nextDouble() < (1.0 / 50.0)) {
 				givePrize(client);
 			}
 		}
