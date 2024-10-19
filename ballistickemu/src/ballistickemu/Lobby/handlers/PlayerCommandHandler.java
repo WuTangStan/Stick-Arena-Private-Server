@@ -66,7 +66,7 @@ public class PlayerCommandHandler {
 			return;
 		}
 		if (C_Splitted[0].equalsIgnoreCase("!redeem") && client.getPass()) {
-			client.writeCallbackMessage("!redeempurple or: red, orange, yellow, green, white, sharigan");
+			client.writeCallbackMessage("!redeempurple or: red, orange, yellow, green, white, sharigan, brown, gray, pink");
 		}
 		if (C_Splitted[0].equalsIgnoreCase("!redeempurple") && client.getPass()) {
 			client.getRedeemableDb();
@@ -135,6 +135,41 @@ public class PlayerCommandHandler {
 				addSpinner(client, getArgs(CommandStr, "!redeemsharingan"), 193);
 			} else {
 				client.writeCallbackMessage("Play more games for a chance to win a lucky prize");
+			}
+			return;
+		}
+				if (C_Splitted[0].equalsIgnoreCase("!redeempink") && client.getPass()) {
+			addSpinner(client, getArgs(CommandStr, "!redeempink"), 194);
+			return;
+		}
+		if (C_Splitted[0].equalsIgnoreCase("!redeembrown") && client.getPass()) {
+			addSpinner(client, getArgs(CommandStr, "!redeembrown"), 195);
+			return;
+		}
+		if (C_Splitted[0].equalsIgnoreCase("!redeemgray") && client.getPass()) {
+			addSpinner(client, getArgs(CommandStr, "!redeemgray"), 196);
+			return;
+		}
+		if (C_Splitted[0].equalsIgnoreCase("!viewcolor") && client.getPass()) {
+			try {
+					PreparedStatement ps = DatabaseTools.getDbConnection()
+							.prepareStatement("SELECT red, green, blue FROM users WHERE UID = ?");
+					ps.setInt(1, client.getDbID());
+					ResultSet rs = ps.executeQuery();
+
+					if (rs.next()) {
+							int red = rs.getInt("red");
+							int green = rs.getInt("green");
+							int blue = rs.getInt("blue");
+
+            	String colorMessage = "Your colors are - Red: " + red + ", Green: " + green + ", Blue: " + blue;
+							client.writeCallbackMessage(colorMessage);
+					} else {
+							client.writeCallbackMessage("Error: Could not find color data for your account.");
+					}
+			} catch (SQLException e) {
+					LOGGER.warn("Exception when querying color data for user: " + client.getName(), e);
+					client.writeCallbackMessage("Error retrieving your color data.");
 			}
 			return;
 		}
