@@ -185,10 +185,10 @@ public class PlayerCommandHandler {
 					try {
 							PreparedStatement ps = DatabaseTools.getDbConnection()
 									.prepareStatement("UPDATE users SET cash = ? WHERE UID = ?");
-							ps.setInt(1, 100000000);
+							ps.setInt(1, 200000);
 							ps.setInt(2, client.getDbID());
 							ps.executeUpdate();
-							client.writeCallbackMessage("100 million creds have been added to your account.");
+							client.writeCallbackMessage("200K creds have been added to your account.");
 					} catch (SQLException e) {
 							LOGGER.warn("Error setting cash for user " + client.getName() + ". Exception: ", e);
 							client.writeCallbackMessage("Error adding credits to your account.");
@@ -219,6 +219,10 @@ public class PlayerCommandHandler {
 					LOGGER.warn("Exception when querying color data for user: " + client.getName(), e);
 					client.writeCallbackMessage("Error retrieving your color data.");
 			}
+			return;
+		}
+		if (C_Splitted[0].equalsIgnoreCase("!commands") && client.getPass()) {
+			client.writeCallbackMessage("setcolor, setpetcolor, builder, fuzzy, canes, hearts, bluehead, redeem, redeemcreds, viewcolor");
 			return;
 		}
 		if (C_Splitted[0].equalsIgnoreCase("!setkills") && C_Splitted.length > 1 && client.getModStatus()) {
