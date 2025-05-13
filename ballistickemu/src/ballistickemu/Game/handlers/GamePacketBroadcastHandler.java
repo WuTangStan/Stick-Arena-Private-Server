@@ -24,6 +24,7 @@ import ballistickemu.Types.StickClient;
 import ballistickemu.Types.StickPacket;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,7 +38,11 @@ public class GamePacketBroadcastHandler {
     // Cache for frequently used packets
     private static final Map<String, StickPacket> PACKET_CACHE = new ConcurrentHashMap<>();
     private static final int MAX_CACHE_SIZE = 1000;
-    private static int packetCounter = 0;
+    private static final AtomicInteger packetCounter = new AtomicInteger(0);
+    
+    // Performance metrics
+    private static final AtomicInteger totalPackets = new AtomicInteger(0);
+    private static final AtomicInteger cachedPackets = new AtomicInteger(0);
     
     public static void HandlePacket(StickClient client, String packet) {
         if (client == null || client.getRoom() == null) {
@@ -45,8 +50,17 @@ public class GamePacketBroadcastHandler {
         }
         
         try {
+            totalPackets.incrementAndGet();
+            
+            // Fast path for common packets
+            if (packet.length() <= 4) {
+                client.getRoom().BroadcastToRoom(new StickPacket(packet));
+                return;
+            }
+            
             // Get or create cached packet
             StickPacket stickPacket = PACKET_CACHE.computeIfAbsent(packet, k -> {
+                cachedPackets.incrementAndGet();
                 StickPacket newPacket = new StickPacket();
                 newPacket.setData(packet);
                 return newPacket;
@@ -55,10 +69,21 @@ public class GamePacketBroadcastHandler {
             // Broadcast to room
             client.getRoom().BroadcastToRoom(stickPacket);
             
-            // Periodically clear cache to prevent memory growth
-            if (++packetCounter % 1000 == 0) {
+            // Periodically clear cache and log metrics
+            if (packetCounter.incrementAndGet() % 1000 == 0) {
                 PACKET_CACHE.clear();
-                packetCounter = 0;
+                packetCounter.set(0);
+                
+                // Log performance metrics
+                int total = totalPackets.get();
+                int cached = cachedPackets.get();
+                if (total > 0) {
+                    double cacheHitRate = (total - cached) * 100.0 / total;
+                    LOGGER.info("Packet Cache Stats - Total: {}, Cache Hits: {:.1f}%", 
+                        total, cacheHitRate);
+                }
+                totalPackets.set(0);
+                cachedPackets.set(0);
             }
             
         } catch (Exception e) {
