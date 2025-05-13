@@ -28,6 +28,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.concurrent.ScheduledFuture;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -61,6 +62,7 @@ public class StickRoom {
 	Set<StickClient> kickVoters;
 	Set<String> totalJoinedClients;
 	private boolean roomMarkedForKill;
+  private boolean loggedStuck = false;
 
 	public StickRoom() {
 		this.CR = new StickClientRegistry(false);
@@ -83,7 +85,7 @@ public class StickRoom {
 		Main.getLobbyServer().getRoomRegistry().scheduleRoomTimer(_Name, new OnTimedEvent());
 		blacklist = new ArrayList<>();
 		kickVoters = new HashSet<>();
-		totalJoinedClients = new HashSet<>();
+		this.totalJoinedClients = new HashSet<>();
 		this.roomMarkedForKill = false;
 	}
 
@@ -248,57 +250,92 @@ public class StickRoom {
 	 * public RoomTimer getStickRoomTimer() { return this.Timer; }
 	 */
 
-	class OnTimedEvent implements Runnable {
-		public void run() {
-			if (CR.getAllClients().isEmpty()) {
-				Main.getLobbyServer().getRoomRegistry()
-						.deRegisterRoom(Main.getLobbyServer().getRoomRegistry().GetRoomFromName(Name));
-				updateJoinedClients();
-				Thread.currentThread().interrupt();
-				return;
-			}
-			RoundTime = (RoundTime - 1);
-			if (RoundTime == -1) {
-				updateStats(getWinner());
-				awardRandomPrize();
-			} 
-			if(RoundTime <=-30) {
-				RoundTime = 300;
-			}
+class OnTimedEvent implements Runnable {
+    public void run() {
+        try {
+            if (CR.getAllClients().isEmpty()) {
+                LOGGER.info("Room '{}' is empty. Deregistering room.", Name);
+
+             	Main.getLobbyServer().getRoomRegistry()
+								.deRegisterRoom(Main.getLobbyServer().getRoomRegistry().GetRoomFromName(Name));
+
+                ScheduledFuture<?> future = Main.getLobbyServer().getRoomRegistry().getScheduledFuture(Name);
+                if (future != null) {
+                    future.cancel(true);
+                    LOGGER.info("Scheduled task for room '{}' has been canceled.", Name);
+                }
+
+                updateJoinedClients();
+
+                return; 
+            }
+
+            RoundTime = (RoundTime - 1);
+            LOGGER.debug("RoundTime for room '{}': {}", Name, RoundTime);
+
+            if (RoundTime == -1) {
+                LOGGER.info("Round ended in room '{}'. Updating stats.", Name);
+                awardRandomPrize();
+                updateStats(getWinner());
+            }
+
+		if (RoundTime < -500 && !loggedStuck) {
+   			LOGGER.warn("Room '{}' has a stuck timer! Current RoundTime: {}", Name, RoundTime);
+   			loggedStuck = true;
 		}
+
+            // Reset the round time if it falls below the threshold
+            if (RoundTime <= -30) {
+                LOGGER.info("Resetting RoundTime for room '{}'", Name);
+                RoundTime = 300;
+            }
+        } catch (Exception e) {
+            LOGGER.error("Exception in OnTimedEvent for room '{}': ", Name, e);
+        }
+    }
+
 
 	private Random random = new Random();
 
-	private void awardRandomPrize() {
-		for (StickClient client : CR.getAllClients()) {
-			// 1 in 50
-      if (client.getGameKills() >= 3 && random.nextDouble() < (1.0 / 50.0)) {
-				givePrize(client);
-			}
-		}
-	}
+private void awardRandomPrize() {
+    CR.ClientsLock.readLock().lock();
+    try {
+        for (StickClient client : CR.getAllClients()) {
+            if (client.getGameKills() >= 3) {
+                int roll = random.nextInt(50) + 1; // Rolls between 1 and 50
+                LOGGER.info("Player '{}' rolled: {}", client.getName(), roll);
 
-	private void givePrize(StickClient luckyClient) {
-        if (luckyClient == null) return;
-
-        try {
-            PreparedStatement ps = DatabaseTools.getDbConnection()
-                    .prepareStatement("UPDATE users SET redeemable = redeemable + 1 WHERE UID = ?");
-            ps.setInt(1, luckyClient.getDbID());
-            int updatedRows = ps.executeUpdate();
-            if (updatedRows > 0) {
-                LOGGER.info("Prize awarded to user: " + luckyClient.getName());
-				luckyClient.writeCallbackMessage("You have won a rare prize! Speak to a moderator to claim it");
-				Main.getLobbyServer().BroadcastAnnouncement2(luckyClient.getName() + " has won a rare prize!");
-
-            } else {
-                LOGGER.warn("Failed to update redeemable count for user: " + luckyClient.getName());
+                if (roll == 1) { // 1/50 chance
+                    LOGGER.info("Awarding random prize to '{}'", client.getName());
+                    givePrize(client);
+                }
             }
-			
-        } catch (SQLException e) {
-            LOGGER.error("SQL Exception when trying to award prize: ", e);
         }
+    } finally {
+        CR.ClientsLock.readLock().unlock();
     }
+}
+
+private void givePrize(StickClient luckyClient) {
+    if (luckyClient == null) return;
+
+    try {
+        PreparedStatement ps = DatabaseTools.getDbConnection()
+          	.prepareStatement("UPDATE users SET redeemable = redeemable + 1 WHERE UID = ?");
+        ps.setInt(1, luckyClient.getDbID());
+        int updatedRows = ps.executeUpdate();
+        if (updatedRows > 0) {
+            LOGGER.info("Prize awarded to user: " + luckyClient.getName());
+            luckyClient.writeCallbackMessage("You have won a rare prize! Speak to a moderator to claim it");
+            Main.getLobbyServer().BroadcastAnnouncement2(luckyClient.getName() + " has won a rare prize!");
+        } else {
+            LOGGER.info("Failed to update redeemable count for user: " + luckyClient.getName());
+        }
+    } catch (SQLException e) {
+        LOGGER.info("SQL Exception when trying to award prize: ", e);
+    }
+}
+
 
 		private void updateJoinedClients() {
 			try {
@@ -320,6 +357,7 @@ public class StickRoom {
 		}
 
 		private StickClient getWinner() {
+			LOGGER.info("Calculating winner for room '{}'", Name);
 			blacklist.clear();
 			int mostKills = -1;
 			StickClient tempWinner = null;
@@ -346,10 +384,12 @@ public class StickRoom {
 				return new StickClient();
 			}
 			tempWinner.incrementGameWins();
+			LOGGER.info("Winner is: {}", tempWinner.getName());
 			return tempWinner;
 		}
 
 		private void updateStats(StickClient winner) {
+			LOGGER.info("Updating stats for room '{}'", Name);
 			CR.ClientsLock.readLock().lock();
 			try {
 				List<StickClient> winners = new ArrayList<StickClient>();
@@ -375,20 +415,23 @@ public class StickRoom {
 						LOGGER.warn("There was an error updating winner status for user " + c.getName());
 					}
 				}
+
+				Set<StickClient> toRemove = new HashSet<>();
 				for (StickClient w : winners) {
 					try {
 						for (StickClient x : winners) {
 							if (w.getGameDeaths() > x.getGameDeaths()) {
 								if (realWinners.contains(w)) {
-									realWinners.remove(w);
-									;
+	  								toRemove.add(w);
+                							break;
 								}
 							}
 						}
 					} catch (Exception e) {
-
+        					LOGGER.warn("Error during comparison in updateStats for user: {}", w.getName(), e);
 					}
 				}
+				realWinners.removeAll(toRemove);
 
 				for (StickClient c : CR.getAllClients()) {
 					try {
@@ -430,6 +473,7 @@ public class StickRoom {
 				}
 
 			} finally {
+				LOGGER.info("Total clients processed in updateStats: {}", CR.getAllClients().size());
 				CR.ClientsLock.readLock().unlock();
 			}
 		}
