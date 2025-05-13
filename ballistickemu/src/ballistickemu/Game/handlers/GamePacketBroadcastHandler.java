@@ -54,7 +54,9 @@ public class GamePacketBroadcastHandler {
             
             // Fast path for common packets
             if (packet.length() <= 4) {
-                client.getRoom().BroadcastToRoom(new StickPacket(packet));
+                StickPacket newPacket = new StickPacket();
+                newPacket.setData(packet);
+                client.getRoom().BroadcastToRoom(newPacket);
                 return;
             }
             

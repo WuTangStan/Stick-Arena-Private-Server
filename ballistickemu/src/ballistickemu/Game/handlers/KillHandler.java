@@ -5,6 +5,7 @@
  
 package ballistickemu.Game.handlers;
 import ballistickemu.Types.StickClient;
+import ballistickemu.Types.StickPacket;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 /**
@@ -34,7 +35,9 @@ public class KillHandler {
             client.setGameDeaths(client.getGameDeaths() + 1);
             
             // Broadcast kill packet immediately
-            client.getRoom().BroadcastToRoom(new StickPacket(packet));
+            StickPacket stickPacket = new StickPacket();
+            stickPacket.setData(packet);
+            client.getRoom().BroadcastToRoom(stickPacket);
             
         } catch (Exception e) {
             LOGGER.error("Error handling kill packet: {}", packet, e);

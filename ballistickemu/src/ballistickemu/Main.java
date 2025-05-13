@@ -163,8 +163,13 @@ public class Main {
                     long usedMemory = totalMemory - freeMemory;
                     long maxMemory = runtime.maxMemory() / (1024 * 1024);
                     
-                    LOGGER.info("Memory Usage - Used: {}MB, Free: {}MB, Total: {}MB, Max: {}MB", 
-                        usedMemory, freeMemory, totalMemory, maxMemory);
+                    LOGGER.info("Memory Usage - Used: {} MB, Free: {} MB, Total: {} MB, Max: {} MB",
+                        new Object[] {
+                            Long.valueOf(usedMemory),
+                            Long.valueOf(freeMemory),
+                            Long.valueOf(totalMemory),
+                            Long.valueOf(maxMemory)
+                        });
                     
                     // If memory usage is too high, trigger GC
                     if (usedMemory > (maxMemory * 0.85)) {

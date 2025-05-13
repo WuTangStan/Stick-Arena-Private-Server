@@ -19,6 +19,11 @@ public class StickPacket
     this.Builder.append(ToAppend);
   }
   
+  public void setData(String data)
+  {
+    this.Builder = new StringBuilder(data);
+  }
+  
   public byte[] getAOB()
   {
     return this.Builder.toString().getBytes();
