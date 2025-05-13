@@ -432,7 +432,7 @@ public class StickClient {
 		if (Packet.getString().length() < 1)
 			return;
 		try {
-			this.session.write(Packet.getString().substring(0, Packet.getString().length() - 1));
+			this.session.write(Packet.getString());
 		} catch (Exception e) {
 			if (this.getLobbyStatus()) {
 				Main.getLobbyServer().getClientRegistry().deregisterClient(this);
@@ -440,13 +440,13 @@ public class StickClient {
 				this.Room.GetCR().deregisterClient(this);
 			}
 		}
-
 	}
 
 	public void writePolicyFile() {
-		if (this.session.isConnected())
-			this.session.write("<cross-domain-policy><allow-access-from domain=\"" + Main.IP
-					+ "\" to-ports=\"3724,47624,1138,1139,443,110,80\" /></cross-domain-policy>");
+		if (this.session.isConnected()) {
+			String policy = "<cross-domain-policy><allow-access-from domain=\"*\" to-ports=\"3724,47624,1138,1139,443,110,80\" /></cross-domain-policy>\0";
+			this.session.write(policy);
+		}
 	}
 
 	public void writeMessage(String Message) {

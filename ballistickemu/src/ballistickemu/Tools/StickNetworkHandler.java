@@ -92,8 +92,7 @@ public class StickNetworkHandler extends IoHandlerAdapter {
 
 	@Override
 	public void sessionIdle(IoSession session, IdleStatus status) throws Exception {
-		// Reduce idle timeout to detect stale connections faster
-		if (session.getIdleCount(status) > 30) {
+		if (session.getIdleCount(status) > 50) {
 			session.close(true);
 		}
 	}
