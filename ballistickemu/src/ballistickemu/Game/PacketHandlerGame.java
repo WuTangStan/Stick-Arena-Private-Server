@@ -41,98 +41,78 @@ import ballistickemu.Lobby.handlers.RoomDetailRequestHandler;
 import ballistickemu.Lobby.handlers.RoomRequestHandler;
 import ballistickemu.Types.StickClient;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiConsumer;
+
 /**
  *
  * @author Simon
  */
 public class PacketHandlerGame {
 	private static final Logger LOGGER = LoggerFactory.getLogger(PacketHandlerGame.class);
-
-	public static void HandlePacket(String Packet, StickClient client)
-	// public static object HandlePacket(object state)
-	{
-		// PacketData PD = (PacketData)state;
-		// string Packet = PD.getData();
-		// StickClient client = PD.getClient();
-		if (Packet.length() < 2) {
-			return;
-		}
-		// Console.WriteLine("Packet being handled from " + client.getName() + " : " +
-		// Packet);
-
-		if (Packet.substring(0, 1).equalsIgnoreCase("0")) {
-			if (Packet.substring(0, 2).equalsIgnoreCase("0\0")) {
-
-			} else if (Packet.substring(0, 2).equalsIgnoreCase("01")) {
-				RoomRequestHandler.handlePacket(client);
-
-			}
-
-			else if (Packet.substring(0, 2).equalsIgnoreCase("03")) {
-				NewClientHandler.HandlePacket(client, Packet);
-
-			}
-
-			else if (Packet.substring(0, 2).equalsIgnoreCase("00")) // Send specified data to specified UID
-			{
-				GenericSendDataHandler.HandlePacket(client, Packet);
-
-			}
-
-			else if (Packet.substring(0, 2).equalsIgnoreCase("04")) {
-				RoomDetailRequestHandler.HandlePacket(client, Packet);
-
-			}
-
-			else if (Packet.substring(0, 2).equalsIgnoreCase("05")) {
-				SetMapCycleListHandler.HandlePacket(client, Packet);
-
-			}
-
-			else if (Packet.substring(0, 2).equalsIgnoreCase("06")) {
-				MapCycleRequestHandler.HandlePacket(client, Packet);
-			} else if (Packet.substring(0, 2).equalsIgnoreCase("0g")) {
-				ModWarnHandler.HandlePacket(client, Packet);
-				return;
-
-			} else if (Packet.substring(0, 2).equalsIgnoreCase("0f")) {
-				ModBanHandler.HandlePacket(client, Packet);
-			} else if (Packet.substring(0, 2).equalsIgnoreCase("0j")) {
-				ModGlobalHandler.HandlePacket(client, Packet);
-			} else if (Packet.substring(0, 2).equalsIgnoreCase("07")) {
-				ModRequestIPHandler.HandlePacket(client, Packet);
-			} else if (Packet.substring(0, 2).equalsIgnoreCase("0l")) {
-				ModBanNameHandler.HandlePacket(client, Packet);
-			} else if (Packet.substring(0, 2).equalsIgnoreCase("0h")) {
-				FindRequestHandler.HandlePacket(client, Packet);
-			} else if (Packet.substring(0, 2).equalsIgnoreCase("0i")) {
-				MapRatingHandler.HandlePacket(client, Packet);
-			}
-		}
-
-		else if (Packet.substring(0, 1).equalsIgnoreCase("9")) {
-			GeneralChatHandler.HandlePacket(client, Packet);
-
-		} else if (Packet.substring(0, 1).equalsIgnoreCase("1") || Packet.substring(0, 1).equalsIgnoreCase("2")
-				|| Packet.substring(0, 1).equalsIgnoreCase("4") || Packet.substring(0, 1).equalsIgnoreCase("6")
-				|| Packet.substring(0, 1).equalsIgnoreCase("5") || Packet.substring(0, 1).equalsIgnoreCase("8")) {
-			GamePacketBroadcastHandler.HandlePacket(client, Packet);
-		}
-
-		else if (Packet.substring(0, 1).equalsIgnoreCase("K")) {
-			VoteKickHandler.HandlePacket(client, Packet);
-		}
-
-		else if (Packet.substring(0, 1).equalsIgnoreCase("7")) {
-			KillHandler.HandlePacket(client, Packet);
-		}
-
-		else {
-			// Console.WriteLine("Unhandled packet from " +
-			// client.getClient().Client.RemoteEndPoint + ":");
-			LOGGER.warn("Unhandled packet received by GamePacketHandler: {}", Packet);
-		}
-
+	
+	// Packet type registry for faster lookups
+	private static final Map<String, BiConsumer<StickClient, String>> PACKET_HANDLERS = new ConcurrentHashMap<>();
+	
+	static {
+		// Initialize packet handlers
+		PACKET_HANDLERS.put("01", (client, packet) -> RoomRequestHandler.handlePacket(client));
+		PACKET_HANDLERS.put("03", (client, packet) -> NewClientHandler.HandlePacket(client, packet));
+		PACKET_HANDLERS.put("04", (client, packet) -> RoomDetailRequestHandler.HandlePacket(client, packet));
+		PACKET_HANDLERS.put("05", (client, packet) -> SetMapCycleListHandler.HandlePacket(client, packet));
+		PACKET_HANDLERS.put("06", (client, packet) -> MapCycleRequestHandler.HandlePacket(client, packet));
+		PACKET_HANDLERS.put("0g", (client, packet) -> ModWarnHandler.HandlePacket(client, packet));
+		PACKET_HANDLERS.put("0f", (client, packet) -> ModBanHandler.HandlePacket(client, packet));
+		PACKET_HANDLERS.put("0j", (client, packet) -> ModGlobalHandler.HandlePacket(client, packet));
+		PACKET_HANDLERS.put("07", (client, packet) -> ModRequestIPHandler.HandlePacket(client, packet));
+		PACKET_HANDLERS.put("0l", (client, packet) -> ModBanNameHandler.HandlePacket(client, packet));
+		PACKET_HANDLERS.put("0h", (client, packet) -> FindRequestHandler.HandlePacket(client, packet));
+		PACKET_HANDLERS.put("0i", (client, packet) -> MapRatingHandler.HandlePacket(client, packet));
 	}
 
+	public static void HandlePacket(String packet, StickClient client) {
+		if (packet == null || packet.length() < 2) {
+			return;
+		}
+
+		try {
+			String packetType = packet.substring(0, 2);
+			
+			// Handle game packets (1, 2, 4, 5, 6, 8)
+			if ("124568".indexOf(packet.charAt(0)) >= 0) {
+				GamePacketBroadcastHandler.HandlePacket(client, packet);
+				return;
+			}
+			
+			// Handle kill packets
+			if (packet.charAt(0) == '7') {
+				KillHandler.HandlePacket(client, packet);
+				return;
+			}
+			
+			// Handle vote kick packets
+			if (packet.charAt(0) == 'K') {
+				VoteKickHandler.HandlePacket(client, packet);
+				return;
+			}
+			
+			// Handle lobby packets
+			if (packet.charAt(0) == '0') {
+				BiConsumer<StickClient, String> handler = PACKET_HANDLERS.get(packetType);
+				if (handler != null) {
+					handler.accept(client, packet);
+				} else {
+					GenericSendDataHandler.HandlePacket(client, packet);
+				}
+				return;
+			}
+			
+			// Handle chat packets
+			GeneralChatHandler.HandlePacket(client, packet);
+			
+		} catch (Exception e) {
+			LOGGER.error("Error handling packet: {}", packet, e);
+		}
+	}
 }

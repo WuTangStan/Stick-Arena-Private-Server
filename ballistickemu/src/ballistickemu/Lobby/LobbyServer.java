@@ -25,6 +25,8 @@ import ballistickemu.Types.StickRoomRegistry;
 import ballistickemu.Types.StickShop;
 import ballistickemu.Tools.StickPacketMaker;
 import java.util.ArrayList;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 /**
  *
  * @author Simon
@@ -33,6 +35,7 @@ public class LobbyServer {
     private StickClientRegistry ClientRegistry;
     private StickRoomRegistry RoomRegistry;
     private StickShop StickShop;
+    private static final Logger LOGGER = LoggerFactory.getLogger(LobbyServer.class);
 
     public LobbyServer()
     {
@@ -60,38 +63,34 @@ public class LobbyServer {
     public void BroadcastPacket(StickPacket packet, Boolean ExcludeChar, String client_UID)
     {
         this.ClientRegistry.ClientsLock.readLock().lock();
-        ArrayList<StickClient> ToDC = new ArrayList<StickClient>();
         try
         {
             for (StickClient c : this.ClientRegistry.getAllClients())
             {
                 try
                 {
-                    if (c.getLobbyStatus() && !((ExcludeChar) && (c.getUID().equalsIgnoreCase(client_UID)))) //jesus that logic is a bitch
+                    if (c.getLobbyStatus() && !((ExcludeChar) && (c.getUID().equalsIgnoreCase(client_UID))))
+                    {
                         c.write(packet);
+                    }
                 }
                 catch(Exception e)
                 {
-                    if((c.getIoSession() != null))
-                        e.printStackTrace();
-                    ToDC.add(c);
+                    if(c.getIoSession() != null)
+                    {
+                        LOGGER.warn("Error broadcasting to client {}: {}", c.getName(), e.getMessage());
+                        this.ClientRegistry.deregisterClient(c);
+                    }
                 }
             }
         } finally {
             this.ClientRegistry.ClientsLock.readLock().unlock();
         }
-        for (StickClient c : ToDC)
-        {
-            this.ClientRegistry.deregisterClient(c);
-        }
-        ToDC.removeAll(ToDC);
     }
 
-
-   public void BroadcastPacket(StickPacket packet)
+    public void BroadcastPacket(StickPacket packet)
     {
-       this.ClientRegistry.ClientsLock.readLock().lock();
-       ArrayList<StickClient> ToDC = new ArrayList<StickClient>();
+        this.ClientRegistry.ClientsLock.readLock().lock();
         try
         {
             for (StickClient c : this.ClientRegistry.getAllClients())
@@ -99,83 +98,82 @@ public class LobbyServer {
                 try
                 {
                     if (c.getLobbyStatus())
+                    {
                         c.write(packet);
+                    }
                 }
                 catch(Exception e)
                 {
                     if(c.getIoSession() != null)
-                        e.printStackTrace();
-                    ToDC.add(c);
+                    {
+                        LOGGER.warn("Error broadcasting to client {}: {}", c.getName(), e.getMessage());
+                        this.ClientRegistry.deregisterClient(c);
+                    }
                 }
             }
         } finally {
             this.ClientRegistry.ClientsLock.readLock().unlock();
         }
-        for (StickClient c : ToDC)
-        {
-            this.ClientRegistry.deregisterClient(c);
-        }
-        ToDC.removeAll(ToDC);
-   }
-
-   public void BroadcastAnnouncement (String Announcement)
-   {
-       this.ClientRegistry.ClientsLock.readLock().lock();
-       ArrayList<StickClient> ToDC = new ArrayList<StickClient>();
-        try
-        {
-            for (StickClient c : this.ClientRegistry.getAllClients())
-                    {
-                        try
-                        {
-                                c.writeCallbackMessage("Announcement: " + Announcement);
-                        }
-                        catch(Exception e)
-                        {
-                            ToDC.add(c);
-                        }
-                    }
-        } finally {
-            this.ClientRegistry.ClientsLock.readLock().unlock();
-        }
-        for (StickClient c : ToDC)
-        {
-            this.ClientRegistry.deregisterClient(c);
-        }
-        ToDC.removeAll(ToDC);
     }
 
-      public void BroadcastAnnouncement2 (String Announcement)
-   {
-       this.ClientRegistry.ClientsLock.readLock().lock();
-       ArrayList<StickClient> ToDC = new ArrayList<StickClient>();
-        try
-        {
-            for (StickClient c : this.ClientRegistry.getAllClients())
-                    {
-                        try
-                        {
-                                c.write(StickPacketMaker.getAnnouncePacket(Announcement));
-                        }
-                        catch(Exception e)
-                        {
-                            ToDC.add(c);
-                        }
-                    }
-        } finally {
-            this.ClientRegistry.ClientsLock.readLock().unlock();
-        }
-        for (StickClient c : ToDC)
-        {
-            this.ClientRegistry.deregisterClient(c);
-        }
-        ToDC.removeAll(ToDC);
-    }
+    public void BroadcastAnnouncement (String Announcement)
+    {
+        this.ClientRegistry.ClientsLock.readLock().lock();
+        ArrayList<StickClient> ToDC = new ArrayList<StickClient>();
+         try
+         {
+             for (StickClient c : this.ClientRegistry.getAllClients())
+                     {
+                         try
+                         {
+                                 c.writeCallbackMessage("Announcement: " + Announcement);
+                         }
+                         catch(Exception e)
+                         {
+                             ToDC.add(c);
+                         }
+                     }
+         } finally {
+             this.ClientRegistry.ClientsLock.readLock().unlock();
+         }
+         for (StickClient c : ToDC)
+         {
+             this.ClientRegistry.deregisterClient(c);
+         }
+         ToDC.removeAll(ToDC);
+     }
 
-   public void sendToUID(String ToUID, StickPacket packet)
-   {
-       if(this.ClientRegistry.UIDExists(ToUID))
-           this.ClientRegistry.getClientfromUID(ToUID).write(packet);
-   }
+    public void BroadcastAnnouncement2 (String Announcement)
+    {
+        this.ClientRegistry.ClientsLock.readLock().lock();
+        ArrayList<StickClient> ToDC = new ArrayList<StickClient>();
+         try
+         {
+             for (StickClient c : this.ClientRegistry.getAllClients())
+                     {
+                         try
+                         {
+                                 c.write(StickPacketMaker.getAnnouncePacket(Announcement));
+                         }
+                         catch(Exception e)
+                         {
+                             ToDC.add(c);
+                         }
+                     }
+         } finally {
+             this.ClientRegistry.ClientsLock.readLock().unlock();
+         }
+         for (StickClient c : ToDC)
+         {
+             this.ClientRegistry.deregisterClient(c);
+         }
+         ToDC.removeAll(ToDC);
+     }
+
+    public void sendToUID(String ToUID, StickPacket packet)
+    {
+        if(this.ClientRegistry.UIDExists(ToUID))
+            this.ClientRegistry.getClientfromUID(ToUID).write(packet);
+    }
 
 }

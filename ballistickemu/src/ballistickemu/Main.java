@@ -23,6 +23,7 @@ import ballistickemu.Lobby.LobbyServer;
 import ballistickemu.Tools.DatabaseTools;
 import ballistickemu.Tools.QuickplayTool;
 import ballistickemu.Tools.StickNetworkHandler;
+import ballistickemu.Tools.MemoryMetricsLogger;
  
 /**
  *
@@ -45,6 +46,10 @@ public class Main {
     	File file = new File("log4j2.xml");
     	// this will force a reconfiguration
     	context.setConfigLocation(file.toURI());
+    	
+    	// Start memory monitoring
+    	startMemoryMonitoring();
+    	
     	Properties ConfigProps = new Properties();
         try {
         ConfigProps.load(new FileInputStream("config.properties"));
@@ -143,4 +148,38 @@ public class Main {
 	public static void setChatLogEnabled(boolean enabled) {
 		chatLogEnabled = enabled;
 	}
+
+    private static void startMemoryMonitoring() {
+        Thread monitorThread = new Thread(() -> {
+            while (!Thread.currentThread().isInterrupted()) {
+                try {
+                    // Log detailed memory metrics
+                    MemoryMetricsLogger.logMemoryMetrics();
+                    
+                    // Keep the existing memory monitoring for GC triggering
+                    Runtime runtime = Runtime.getRuntime();
+                    long totalMemory = runtime.totalMemory() / (1024 * 1024);
+                    long freeMemory = runtime.freeMemory() / (1024 * 1024);
+                    long usedMemory = totalMemory - freeMemory;
+                    long maxMemory = runtime.maxMemory() / (1024 * 1024);
+                    
+                    LOGGER.info("Memory Usage - Used: {}MB, Free: {}MB, Total: {}MB, Max: {}MB", 
+                        usedMemory, freeMemory, totalMemory, maxMemory);
+                    
+                    // If memory usage is too high, trigger GC
+                    if (usedMemory > (maxMemory * 0.85)) {
+                        LOGGER.warn("High memory usage detected, triggering garbage collection");
+                        System.gc();
+                    }
+                    
+                    Thread.sleep(300000); // Check every 5 minutes
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        });
+        monitorThread.setDaemon(true);
+        monitorThread.start();
+    }
 }

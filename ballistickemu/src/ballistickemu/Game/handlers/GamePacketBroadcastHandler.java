@@ -18,15 +18,51 @@
  *     the Free Software Foundation, Inc., 59 Temple Place,
  */
 package ballistickemu.Game.handlers;
+
 import ballistickemu.Tools.StickPacketMaker;
 import ballistickemu.Types.StickClient;
+import ballistickemu.Types.StickPacket;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  *
  * @author Simon
  */
 public class GamePacketBroadcastHandler {
-        public static void HandlePacket(StickClient client, String Packet)
-        {
-            client.getRoom().BroadcastToRoom(StickPacketMaker.getBroadcastPacket(Packet, client.getUID())); //<--- beautiful, MMO gameplay added in one line
+    private static final Logger LOGGER = LoggerFactory.getLogger(GamePacketBroadcastHandler.class);
+    
+    // Cache for frequently used packets
+    private static final Map<String, StickPacket> PACKET_CACHE = new ConcurrentHashMap<>();
+    private static final int MAX_CACHE_SIZE = 1000;
+    private static int packetCounter = 0;
+    
+    public static void HandlePacket(StickClient client, String packet) {
+        if (client == null || client.getRoom() == null) {
+            return;
         }
+        
+        try {
+            // Get or create cached packet
+            StickPacket stickPacket = PACKET_CACHE.computeIfAbsent(packet, k -> {
+                StickPacket newPacket = new StickPacket();
+                newPacket.setData(packet);
+                return newPacket;
+            });
+            
+            // Broadcast to room
+            client.getRoom().BroadcastToRoom(stickPacket);
+            
+            // Periodically clear cache to prevent memory growth
+            if (++packetCounter % 1000 == 0) {
+                PACKET_CACHE.clear();
+                packetCounter = 0;
+            }
+            
+        } catch (Exception e) {
+            LOGGER.error("Error broadcasting game packet: {}", packet, e);
+        }
+    }
 }

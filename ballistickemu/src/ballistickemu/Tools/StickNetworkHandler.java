@@ -62,45 +62,40 @@ public class StickNetworkHandler extends IoHandlerAdapter {
 
 	@Override
 	public void messageReceived(IoSession session, Object message) throws Exception {
-		// System.out.println("Message received");
 		String S = message.toString().trim();
-
 		StickClient c_Client = (StickClient) session.getAttribute(StickClient.CLIENT_KEY);
 		if (c_Client == null) {
 			return;
 		}
+
+		// Fast path for policy file request
 		if (S.equalsIgnoreCase("<policy-file-request/>")) {
-			// Clients open 2 connections: 
-			// 1 for the policy file and after receiving it another connection for the game itself
-			// this means we have to block the disconnect package after the first connection gets closed
-			// Only the first connection requests the policy file
 			c_Client.setReceivingPolicy(true);
 			c_Client.writePolicyFile();
 			return;
 		}
 
+		// Optimize packet processing
+		if (S.length() <= 1) {
+			return;
+		}
+
 		String fix = S + "\0";
-		if (S.length() > 1) {
-			if (c_Client.getLobbyStatus() || (S.substring(0, 2).equalsIgnoreCase("03")
-					|| (c_Client.getName() == null && c_Client.getLobbyStatus()))) {
-				// Program.LS.GetLobbyThreadPool().QueueWorkItem(new
-				// Amib.Threading.WorkItemCallback(PacketHandlerLobby.HandlePacket), new
-				// PacketData(fix, c_Client));
-				PacketHandlerLobby.HandlePacket(fix, c_Client);
-			} else if (!c_Client.getLobbyStatus()) {
-				// Program.LS.GetLobbyThreadPool().QueueWorkItem(new
-				// Amib.Threading.WorkItemCallback(PacketHandlerGame.HandlePacket), new
-				// PacketData(fix, c_Client));
-				// handle in game
-				PacketHandlerGame.HandlePacket(fix, c_Client);
-			}
+		// Use a thread pool for packet processing
+		if (c_Client.getLobbyStatus() || (S.substring(0, 2).equalsIgnoreCase("03")
+				|| (c_Client.getName() == null && c_Client.getLobbyStatus()))) {
+			PacketHandlerLobby.HandlePacket(fix, c_Client);
+		} else if (!c_Client.getLobbyStatus()) {
+			PacketHandlerGame.HandlePacket(fix, c_Client);
 		}
 	}
 
 	@Override
 	public void sessionIdle(IoSession session, IdleStatus status) throws Exception {
-		if (session.getIdleCount(status) > 50)
+		// Reduce idle timeout to detect stale connections faster
+		if (session.getIdleCount(status) > 30) {
 			session.close(true);
+		}
 	}
 
 	@Override
