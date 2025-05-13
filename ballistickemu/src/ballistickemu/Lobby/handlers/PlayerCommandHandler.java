@@ -168,11 +168,21 @@ public class PlayerCommandHandler {
 			}
 			return;
 		}
-				if (C_Splitted[0].equalsIgnoreCase("!redeemsilver") && client.getPass()) {
+		if (C_Splitted[0].equalsIgnoreCase("!redeemsilver") && client.getPass()) {
 			client.getRedeemableDb();
 			if (client.getRedeemable() > 0) {
 				client.updateRedeemable(client.getRedeemable() - 1);
 				addSpinner(client, getArgs(CommandStr, "!redeemsilver"), 197);
+			} else {
+				client.writeCallbackMessage("Play more games for a chance to win a lucky prize");
+			}
+			return;
+		}
+    if (C_Splitted[0].equalsIgnoreCase("!redeemtroll") && client.getPass()) {
+			client.getRedeemableDb();
+			if (client.getRedeemable() > 0) {
+				client.updateRedeemable(client.getRedeemable() - 1);
+				addSpinner(client, getArgs(CommandStr, "!redeemtroll"), 198);
 			} else {
 				client.writeCallbackMessage("Play more games for a chance to win a lucky prize");
 			}
@@ -411,6 +421,11 @@ public class PlayerCommandHandler {
 
 		if (itemID == 197) {
 			String[] defCol = { "192", "192", "192", "28", "-99", "-99" };
+			colour = defCol;
+		}
+
+   		if (itemID == 198) {
+			String[] defCol = { "255", "255", "255", "255", "255", "255" };
 			colour = defCol;
 		}
 
