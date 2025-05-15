@@ -67,11 +67,11 @@ public class Main {
 		}
         LOGGER.info("Welcome to BallistickEMU - Improved by andre_jar");
         NioSocketAcceptor SocketAcceptor = new NioSocketAcceptor();
-        SocketAcceptor.getSessionConfig().setIdleTime( IdleStatus.BOTH_IDLE, 10 );
-        SocketAcceptor.getSessionConfig().setReadBufferSize( 2048 );
+        SocketAcceptor.getSessionConfig().setIdleTime(IdleStatus.BOTH_IDLE, 50);
+        SocketAcceptor.getSessionConfig().setReadBufferSize(2048);
         SocketAcceptor.setHandler(new StickNetworkHandler());
         ExecutorFilter executor = new ExecutorFilter();
-        SocketAcceptor.getFilterChain().addLast( "codec", new ProtocolCodecFilter( new TextLineCodecFactory( Charset.forName( "UTF-8" ), "\0", "\0")));
+        SocketAcceptor.getFilterChain().addLast("codec", new ProtocolCodecFilter(new TextLineCodecFactory(Charset.forName("UTF-8"), "\0", "\0")));
         SocketAcceptor.getFilterChain().addLast("threadPool", executor);
         LS = new LobbyServer();
        
