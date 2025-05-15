@@ -34,10 +34,8 @@ public class KillHandler {
             // Update victim stats
             client.setGameDeaths(client.getGameDeaths() + 1);
             
-            // Broadcast kill packet immediately
-            StickPacket stickPacket = new StickPacket();
-            stickPacket.setData(packet);
-            client.getRoom().BroadcastToRoom(stickPacket);
+            GamePacketBroadcastHandler.HandlePacket(client, packet);
+
             
         } catch (Exception e) {
             LOGGER.error("Error handling kill packet: {}", packet, e);

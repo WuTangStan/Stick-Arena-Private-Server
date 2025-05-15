@@ -52,24 +52,9 @@ public class GamePacketBroadcastHandler {
         try {
             totalPackets.incrementAndGet();
             
-            // Fast path for common packets
-            if (packet.length() <= 4) {
-                StickPacket newPacket = new StickPacket();
-                newPacket.setData(packet);
-                client.getRoom().BroadcastToRoom(newPacket);
-                return;
-            }
-            
-            // Get or create cached packet
-            StickPacket stickPacket = PACKET_CACHE.computeIfAbsent(packet, k -> {
-                cachedPackets.incrementAndGet();
-                StickPacket newPacket = new StickPacket();
-                newPacket.setData(packet);
-                return newPacket;
-            });
-            
-            // Broadcast to room
-            client.getRoom().BroadcastToRoom(stickPacket);
+            StickPacket packetToSend = StickPacketMaker.getBroadcastPacket(packet, client.getUID());
+            client.getRoom().BroadcastToRoom(packetToSend);
+
             
             // Periodically clear cache and log metrics
             if (packetCounter.incrementAndGet() % 1000 == 0) {
