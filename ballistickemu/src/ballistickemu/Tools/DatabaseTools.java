@@ -1,143 +1,129 @@
+/*
+ *     THIS FILE AND PROJECT IS SUPPLIED FOR EDUCATIONAL PURPOSES ONLY.
+ *
+ *     This program is free software; you can redistribute it
+ *     and/or modify it under the terms of the GNU General
+ *     Public License as published by the Free Software
+ *     Foundation; either version 2 of the License, or (at your
+ *     option) any later version.
+ *
+ *     This program is distributed in the hope that it will be
+ *     useful, but WITHOUT ANY WARRANTY; without even the
+ *     implied warranty of MERCHANTABILITY or FITNESS FOR A
+ *     PARTICULAR PURPOSE. See the GNU General Public License
+ *     for more details.
+ *
+ *     You should have received a copy of the GNU General
+ *     Public License along with this program; if not, write to
+ *     the Free Software Foundation, Inc., 59 Temple Place,
+ */
 package ballistickemu.Tools;
-import java.util.concurrent.locks.ReentrantLock;
 
-import com.zaxxer.hikari.HikariConfig;
-import com.zaxxer.hikari.HikariDataSource;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.concurrent.locks.ReentrantLock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.sql.*;
-
 /**
- * Database utility using HikariCP
+ *
+ * @author Simon
  */
 public class DatabaseTools {
 	private static final Logger LOGGER = LoggerFactory.getLogger(DatabaseTools.class);
-	private static HikariDataSource dataSource;
 	public static final ReentrantLock lock = new ReentrantLock();
-
+	
 	public static String user;
 	public static String pass;
 	public static String server;
 	public static String database;
-
+	
 	public static void dbConnect() {
 		try {
-			initializeConnectionPool();
-			LOGGER.info("Database connection pool initialized successfully");
-			startPoolMonitoring();
-		} catch (Exception e) {
-			LOGGER.error("Failed to initialize database connection pool", e);
-			throw new RuntimeException("Database connection failed", e);
+			Class.forName("com.mysql.jdbc.Driver");
+			LOGGER.info("Database connection initialized successfully");
+		} catch (ClassNotFoundException e) {
+			LOGGER.error("Failed to initialize database connection", e);
 		}
 	}
-
-	private static void initializeConnectionPool() {
-		HikariConfig config = new HikariConfig();
-		config.setJdbcUrl("jdbc:mysql://" + server + "/" + database);
-		config.setUsername(user);
-		config.setPassword(pass);
-		config.setMaximumPoolSize(10);
-		config.setMinimumIdle(5);
-		config.setIdleTimeout(1200000);
-		config.setConnectionTimeout(10000);
-		config.setLeakDetectionThreshold(10000);
-		config.addDataSourceProperty("cachePrepStmts", "true");
-		config.addDataSourceProperty("prepStmtCacheSize", "250");
-		config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
-
-		dataSource = new HikariDataSource(config);
-	}
-
-	private static void startPoolMonitoring() {
-		Thread monitorThread = new Thread(() -> {
-			while (!Thread.currentThread().isInterrupted()) {
-				try {
-					if (dataSource != null) {
-						LOGGER.info("Pool Stats - Active: {}, Idle: {}, Total: {}, Waiting: {}",
-							new Object[] {
-								dataSource.getHikariPoolMXBean().getActiveConnections(),
-								dataSource.getHikariPoolMXBean().getIdleConnections(),
-								dataSource.getHikariPoolMXBean().getTotalConnections(),
-								dataSource.getHikariPoolMXBean().getThreadsAwaitingConnection()
-							});
-					}
-					Thread.sleep(300000); // Every 5 mins
-				} catch (InterruptedException e) {
-					Thread.currentThread().interrupt();
-				}
-			}
-		});
-		monitorThread.setDaemon(true);
-		monitorThread.start();
-	}
-
+	
 	public static Connection getDbConnection() throws SQLException {
-		return dataSource.getConnection();
+		return DriverManager.getConnection(
+			"jdbc:mysql://" + server + "/" + database,
+			user,
+			pass
+		);
 	}
-
-	public static void closeConnectionPool() {
-		if (dataSource != null && !dataSource.isClosed()) {
-			dataSource.close();
-			LOGGER.info("Database connection pool shut down.");
-		}
-	}
-
-	// === Execute Query with Callback ===
-	public static void executeQuery(String sql, QueryCallback callback) {
+	
+	public static void executeQuery(String query, QueryCallback callback) {
+		lock.lock();
 		try (Connection conn = getDbConnection();
-			 PreparedStatement ps = conn.prepareStatement(sql)) {
-			callback.execute(ps);
+			 PreparedStatement stmt = conn.prepareStatement(query);
+			 ResultSet rs = stmt.executeQuery()) {
+			callback.process(rs);
 		} catch (SQLException e) {
-			LOGGER.error("Error executing query with callback: {}", sql, e);
-			throw new RuntimeException("Query execution failed", e);
+			LOGGER.error("Error executing query: {}", query, e);
+		} finally {
+			lock.unlock();
 		}
 	}
-
-	// === Execute Update (INSERT/UPDATE/DELETE) ===
+	
 	public static int executeQuery(String query) {
+		lock.lock();
 		try (Connection conn = getDbConnection();
 			 PreparedStatement stmt = conn.prepareStatement(query)) {
 			return stmt.executeUpdate();
 		} catch (SQLException e) {
-			LOGGER.error("Error executing update query: {}", query, e);
+			LOGGER.error("Error executing query: {}", query, e);
 			return -1;
+		} finally {
+			lock.unlock();
 		}
 	}
-
-	// === Execute Prepared Update ===
+	
 	public static int executeQuery(PreparedStatement ps) {
+		lock.lock();
 		try {
 			return ps.executeUpdate();
 		} catch (SQLException e) {
-			LOGGER.error("Error executing prepared update: {}", ps, e);
+			LOGGER.error("Error executing prepared statement: {}", ps, e);
 			return -1;
+		} finally {
+			lock.unlock();
 		}
 	}
-
-	// === Execute Select Query ===
+	
 	public static ResultSet executeSelectQuery(String query) {
+		lock.lock();
 		try {
 			Connection conn = getDbConnection();
 			return conn.createStatement().executeQuery(query);
 		} catch (SQLException e) {
 			LOGGER.error("Error executing select query: {}", query, e);
 			return null;
+		} finally {
+			lock.unlock();
 		}
 	}
-
+	
 	public static int getRowCount(PreparedStatement ps) {
+		lock.lock();
 		try {
 			ResultSet rs = ps.executeQuery();
 			rs.last();
 			return rs.getRow();
 		} catch (SQLException e) {
-			LOGGER.error("Error getting row count", e);
+			LOGGER.error("Error getting row count: {}", e.getMessage());
 			return -1;
+		} finally {
+			lock.unlock();
 		}
 	}
-
+	
 	public interface QueryCallback {
-		void execute(PreparedStatement ps) throws SQLException;
+		void process(ResultSet rs) throws SQLException;
 	}
 }
