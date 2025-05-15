@@ -62,13 +62,12 @@ public class GamePacketBroadcastHandler {
                 int cached = cachedPackets.get();
                 if (total > 0) {
                     double cacheHitRate = (total - cached) * 100.0 / total;
-                    LOGGER.info("Packet Cache Stats - Total: {}, Cache Hits: {:.1f}%",
-                        total, cacheHitRate);
+                    LOGGER.info("Packet Cache Stats - Total: {}, Cache Hits: {}%", total, String.format("%.1f", cacheHitRate));
                 }
-
                 totalPackets.set(0);
                 cachedPackets.set(0);
             }
+
         } catch (Exception e) {
             LOGGER.error("Error broadcasting game packet: {}", packet, e);
         }
