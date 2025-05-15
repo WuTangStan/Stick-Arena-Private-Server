@@ -25,6 +25,9 @@ import ballistickemu.Types.StickPacket;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  *
@@ -32,26 +35,39 @@ import java.util.ArrayList;
  */
 public class GamePacketBroadcastHandler {
     private static final Logger LOGGER = LoggerFactory.getLogger(GamePacketBroadcastHandler.class);
-    
+
+    // Optional performance tracking and caching
+    private static final Map<String, StickPacket> PACKET_CACHE = new ConcurrentHashMap<>();
+    private static final AtomicInteger packetCounter = new AtomicInteger(0);
+    private static final AtomicInteger totalPackets = new AtomicInteger(0);
+    private static final AtomicInteger cachedPackets = new AtomicInteger(0);
+
     public static void HandlePacket(StickClient client, String packet) {
         if (client == null || client.getRoom() == null) {
             return;
         }
-        
+
         try {
-            StickPacket stickPacket = new StickPacket();
-            stickPacket.setData(packet);
-            
-            // Get all clients in the room except the sender
-            ArrayList<StickClient> roomClients = new ArrayList<>(client.getRoom().GetCR().getAllClients());
-            for (StickClient roomClient : roomClients) {
-                if (roomClient != client && !roomClient.getLobbyStatus()) {
-                    try {
-                        roomClient.write(stickPacket);
-                    } catch (Exception e) {
-                        LOGGER.error("Error sending packet to client {}: {}", roomClient.getName(), e.getMessage());
-                    }
+            totalPackets.incrementAndGet();
+
+            StickPacket packetToSend = StickPacketMaker.getBroadcastPacket(packet, client.getUID());
+            client.getRoom().BroadcastToRoom(packetToSend);
+
+            // Periodically clear cache and log metrics
+            if (packetCounter.incrementAndGet() % 1000 == 0) {
+                PACKET_CACHE.clear();
+                packetCounter.set(0);
+
+                int total = totalPackets.get();
+                int cached = cachedPackets.get();
+                if (total > 0) {
+                    double cacheHitRate = (total - cached) * 100.0 / total;
+                    LOGGER.info("Packet Cache Stats - Total: {}, Cache Hits: {:.1f}%",
+                        total, cacheHitRate);
                 }
+
+                totalPackets.set(0);
+                cachedPackets.set(0);
             }
         } catch (Exception e) {
             LOGGER.error("Error broadcasting game packet: {}", packet, e);
