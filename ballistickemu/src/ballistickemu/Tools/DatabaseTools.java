@@ -1,4 +1,5 @@
 package ballistickemu.Tools;
+import java.util.concurrent.locks.ReentrantLock;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
@@ -13,6 +14,7 @@ import java.sql.*;
 public class DatabaseTools {
 	private static final Logger LOGGER = LoggerFactory.getLogger(DatabaseTools.class);
 	private static HikariDataSource dataSource;
+	public static final ReentrantLock lock = new ReentrantLock();
 
 	public static String user;
 	public static String pass;
@@ -53,10 +55,12 @@ public class DatabaseTools {
 				try {
 					if (dataSource != null) {
 						LOGGER.info("Pool Stats - Active: {}, Idle: {}, Total: {}, Waiting: {}",
-							dataSource.getHikariPoolMXBean().getActiveConnections(),
-							dataSource.getHikariPoolMXBean().getIdleConnections(),
-							dataSource.getHikariPoolMXBean().getTotalConnections(),
-							dataSource.getHikariPoolMXBean().getThreadsAwaitingConnection());
+							new Object[] {
+								dataSource.getHikariPoolMXBean().getActiveConnections(),
+								dataSource.getHikariPoolMXBean().getIdleConnections(),
+								dataSource.getHikariPoolMXBean().getTotalConnections(),
+								dataSource.getHikariPoolMXBean().getThreadsAwaitingConnection()
+							});
 					}
 					Thread.sleep(300000); // Every 5 mins
 				} catch (InterruptedException e) {
