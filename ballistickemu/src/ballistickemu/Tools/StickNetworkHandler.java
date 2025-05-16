@@ -33,6 +33,9 @@ import ballistickemu.Game.PacketHandlerGame;
 import ballistickemu.Lobby.PacketHandlerLobby;
 import ballistickemu.Types.StickClient;
 
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+
 public class StickNetworkHandler extends IoHandlerAdapter {
 	private static final Logger LOGGER = LoggerFactory.getLogger(StickNetworkHandler.class);
 
@@ -109,7 +112,14 @@ public class StickNetworkHandler extends IoHandlerAdapter {
 			} else if (c_Client.getRoom() != null) {
 				c_Client.getRoom().GetCR().deregisterClient(c_Client);
 				Main.getLobbyServer().getClientRegistry().deregisterClient(c_Client);
-
+			}
+			try {
+					PreparedStatement updateOffline = DatabaseTools.getDbConnection()
+							.prepareStatement("UPDATE `users` SET `isOnline` = 0 WHERE `UID` = ?");
+					updateOffline.setInt(1, c_Client.getDbID());
+					updateOffline.executeUpdate();
+			} catch (SQLException e) {
+					LOGGER.warn("Error while setting isOnline=0 for UID: " + c_Client.getDbID(), e);
 			}
 
 			/*

@@ -254,6 +254,14 @@ public class LoginHandler {
 			String colour2 = client.getSelectedSpinner().getColour().getColour2AsString();
 			updateLastLoginDate(client.getDbID(),
 					client.getIoSession().getRemoteAddress().toString().substring(1).split(":")[0]);
+				try {
+					PreparedStatement updateOnline = DatabaseTools.getDbConnection()
+							.prepareStatement("UPDATE `users` SET `isOnline` = 1 WHERE `UID` = ?");
+					updateOnline.setInt(1, client.getDbID());
+					updateOnline.executeUpdate();
+			} catch (SQLException e) {
+					LOGGER.warn("Error while setting isOnline=1 for UID: " + client.getDbID(), e);
+			}
 			client.write(StickPacketMaker.getLoginSuccess(client.getUID(), paddedUN, colour, colour2, kills, deaths,
 					wins, losses, rounds, labpass, expiry, ticket, cash, user_level));
 			Main.getLobbyServer().getClientRegistry().registerClient(client);
