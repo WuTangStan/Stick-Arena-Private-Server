@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Username Util</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+    }
+    div {
+      margin-bottom: 10px;
+    }
+    label {
+      display: inline-block;
+      width: 180px;
+    }
+  </style>
+</head>
+<body>
+  <h2>Select Server</h2>
+  <p id="currentServer">Current: NA</p>
+  <button id="naBtn">NA</button>
+  <button id="euBtn" disabled>EU</button>
+  
+  <div>
+    <label for="usernameInput">User Name:</label>
+    <input type="text" id="usernameInput">
+  </div>
+  <div>
+    <label for="passwordInput">Password:</label>
+    <input type="password" id="passwordInput">
+  </div>
+  <div>
+    <label for="newUsernameInput">Change User Name To:</label>
+    <input type="text" id="newUsernameInput">
+  </div>
+  
+  <button id="submitBtn">Submit</button>
+
+  <script>
+    let server = "NA";
+
+    const currentServerEl = document.getElementById("currentServer");
+    const naBtn = document.getElementById("naBtn");
+    const euBtn = document.getElementById("euBtn");
+    const usernameInput = document.getElementById("usernameInput");
+    const passwordInput = document.getElementById("passwordInput");
+    const newUsernameInput = document.getElementById("newUsernameInput");
+    const submitBtn = document.getElementById("submitBtn");
+
+    function updateServerDisplay() {
+      currentServerEl.textContent = "Current: " + server;
+    }
+    updateServerDisplay();
+
+    naBtn.addEventListener("click", function() {
+      server = "NA";
+      updateServerDisplay();
+    });
+    euBtn.addEventListener("click", function() {
+      server = "EU";
+      updateServerDisplay();
+    });
+
+    submitBtn.addEventListener("click", function() {
+      const username = usernameInput.value.trim();
+      const password = passwordInput.value;
+      const newUsername = newUsernameInput.value.trim();
+
+      if (newUsername.length < 3) {
+        alert("new username must be at least 3 chars");
+        return;
+      }
+      
+      const url = server === "NA"
+        ? "https://98.84.151.65/api.php?method=xgen.users.changeName"
+        : "http://15.237.196.49/api.php?method=xgen.users.changeName";
+      
+      // Build the POST parameters
+      const params = new URLSearchParams({
+        username: username,
+        password: password,
+        new_username: newUsername
+      });
+
+      fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded"
+        },
+        body: params.toString()
+      })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error("Server error: " + response.status);
+        }
+        return response.text();
+      })
+      .then(data => {
+	      alert('success');
+        console.log("Response data:", data);
+      })
+      .catch(error => {
+	      alert('fail. contact the discord server.');
+        console.error("Fetch error:", error);
+      });
+    });
+  </script>
+</body>
+</html>
