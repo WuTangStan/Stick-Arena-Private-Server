@@ -60,6 +60,7 @@ public class LoginHandler {
 		}
 
 		String[] splitted = packet.replaceAll("\0", "").substring(2).split(";");
+
 		if (splitted[0].length() > 20) // 20 is max name length - above is a nono
 		{
 			client.getIoSession().close(true);
@@ -72,12 +73,13 @@ public class LoginHandler {
 			e.printStackTrace();
 		}
 
+
 		try {
 			if (DatabaseTools.getDbConnection().isClosed() || DatabaseTools.getDbConnection() == null)
 				DatabaseTools.dbConnect();
 
 			PreparedStatement ps = DatabaseTools.getDbConnection()
-					.prepareStatement("SELECT * FROM `users` WHERE `USERname` = ? AND `USERpass` = ?");
+.prepareStatement("SELECT * FROM `users` WHERE `USERname` = ? AND BINARY `USERpass` = ?");
 			ps.setString(1, splitted[0]);
 			ps.setString(2, MD5Pass);
 
