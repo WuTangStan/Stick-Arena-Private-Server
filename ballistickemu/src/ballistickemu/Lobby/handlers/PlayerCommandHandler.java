@@ -188,6 +188,36 @@ public class PlayerCommandHandler {
 			}
 			return;
 		}
+		if (C_Splitted[0].equalsIgnoreCase("!redeemmidnightblue") && client.getPass()) {
+			client.getRedeemableDb();
+			if (client.getRedeemable() > 0) {
+				client.updateRedeemable(client.getRedeemable() - 1);
+				addSpinner(client, getArgs(CommandStr, "!redeemmidnightblue"), 163);
+			} else {
+				client.writeCallbackMessage("Play more games for a chance to win a lucky prize");
+			}
+			return;
+		}
+		if (C_Splitted[0].equalsIgnoreCase("!redeemdgold") && client.getPass()) {
+			client.getRedeemableDb();
+			if (client.getRedeemable() > 0) {
+				client.updateRedeemable(client.getRedeemable() - 1);
+				addSpinner(client, getArgs(CommandStr, "!redeemdgold"), 164);
+			} else {
+				client.writeCallbackMessage("Play more games for a chance to win a lucky prize");
+			}
+			return;
+		}
+				if (C_Splitted[0].equalsIgnoreCase("!redeemteal") && client.getPass()) {
+			client.getRedeemableDb();
+			if (client.getRedeemable() > 0) {
+				client.updateRedeemable(client.getRedeemable() - 1);
+				addSpinner(client, getArgs(CommandStr, "!redeemteal"), 165);
+			} else {
+				client.writeCallbackMessage("Play more games for a chance to win a lucky prize");
+			}
+			return;
+		}
 		if (C_Splitted[0].equalsIgnoreCase("!redeemcreds") && client.getPass()) {
 			client.getRedeemableDb();
 			if (client.getRedeemable() > 0) {
@@ -425,7 +455,47 @@ public class PlayerCommandHandler {
 		}
 
    		if (itemID == 198) {
-			String[] defCol = { "255", "255", "255", "255", "255", "255" };
+			String[] defCol = { "-99", "-25", "47", "255", "255", "255" };
+			colour = defCol;
+		}
+
+   		if (itemID == 199) {
+			String[] defCol = { "255", "27", "-61", "255", "255", "255" };
+			colour = defCol;
+		}
+
+   	if (itemID == 160) {
+			String[] defCol = { "255", "27", "-61", "255", "255", "255" };
+			colour = defCol;
+		}
+
+		if (itemID == 161) {
+			String[] defCol = { "-99", "-99", "-99", "255", "255", "255" };
+			colour = defCol;
+		}
+
+				if (itemID == 162) {
+			String[] defCol = { "-40", "-99", "-13", "255", "255", "255" };
+			colour = defCol;
+		}
+
+				if (itemID == 163) {
+			String[] defCol = { "-99", "-99", "0", "255", "255", "255" };
+			colour = defCol;
+		}
+
+				if (itemID == 164) {
+			String[] defCol = { "112", "75", "-45", "255", "255", "255" };
+			colour = defCol;
+		}
+
+				if (itemID == 165) {
+			String[] defCol = { "-99", "28", "28", "255", "255", "255" };
+			colour = defCol;
+		}
+
+				if (itemID == 166) {
+			String[] defCol = { "255", "27", "-61", "255", "255", "255" };
 			colour = defCol;
 		}
 
