@@ -204,13 +204,11 @@ if($method == "xgen.stickarena.maps.list")
 	} else {
 		$username = $_REQUEST['username'];
 		$password = $_REQUEST['password'];
-		$verifiedQuery = mysqli_execute_query($db, "SELECT verified,user_level FROM users WHERE username=? userpass=?", [$username,md5($password)]);
+		$verifiedQuery = mysqli_execute_query($db, "SELECT verified,user_level FROM users WHERE username=? AND userpass=?", [$username,md5($password)]);
 		if(isset($verifiedQuery) && mysqli_num_rows($verifiedQuery)>0) {
 			$row = mysqli_fetch_row($verifiedQuery);
 			$verified = $row[0];
 			$user_level = $row[1];
-			if($verified == 1) {
-				if($user_level>1) {
 					$new_username = $_REQUEST['new_username'];
 					$response .= "<rsp stat=\"ok\"/>";
 					if(isValidStrings([$new_username])) {
@@ -219,36 +217,70 @@ if($method == "xgen.stickarena.maps.list")
 							// message does not exist on original api
 							$response .= "<rsp stat=\"fail\">\n\t<err code=\"\" msg=\"Username already exists\"/>\n</rsp>";
 						} else {
-							$renameResult = mysqli_execute_query($db, "UPDATE users SET username=? WHERE username=? userpass=?", [$new_username,$username,md5($password)]);
+							$renameResult = mysqli_execute_query($db, "UPDATE users SET username=? WHERE username=? AND userpass=?", [$new_username,$username,md5($password)]);
 						}
 					}
-				} else {
-					$response .= "<rsp stat=\"fail\">\n\t<err code=\"6\" msg=\"Username change not allowed for this account\"/>\n</rsp>";
-				}
-			} else {
-				$response .= "<rsp stat=\"fail\">\n\t<err code=\"7\" msg=\"Username change not allowed for non-email verified accounts\"/>\n</rsp>";
-			}
+		
 		} else {
 			$response .= $failed_login;
 		}
 	}
-} else if($method=="xgen.users.changePassword") 
-{
-	if(!isset($_REQUEST['username']) || !isset($_REQUEST['password']) || !isset($_REQUEST['new_password']))
-	{
-		$response .= $missing_args;
-	} else {
-		$username = $_REQUEST['username'];
-		$password = $_REQUEST['password'];
-		$new_password = $_REQUEST['new_password'];
-		$exists = mysqli_execute_query($db, "SELECT uid FROM users WHERE username=? userpass=?", [$username,md5($password)]);
-		if(isset($exists) && mysqli_num_rows($exists)>0) {
-			$response .= "<rsp stat=\"ok\"/>";
-			$changePWResult = mysqli_execute_query($db, "UPDATE users SET userpass=? WHERE username=? userpass=?", [md5($new_password),$username,$password]);
-		} else {
-			$response .= $failed_login;
-		}
-	}
+} else if($method == "xgen.users.changePassword") {
+
+    if (!isset($_REQUEST['username']) || !isset($_REQUEST['password']) || !isset($_REQUEST['new_password'])) {
+        // If any of the required parameters are missing
+        $response .= $missing_args;
+    } else {
+        $username     = $_REQUEST['username'];
+        $password     = $_REQUEST['password'];
+        $new_password = $_REQUEST['new_password'];
+
+        // Check if user exists and password is correct
+        $exists = mysqli_execute_query(
+            $db,
+            "SELECT uid FROM users WHERE username=? AND userpass=?",
+            [$username, md5($password)]
+        );
+
+        if ($exists && mysqli_num_rows($exists) > 0) {
+
+            // Attempt to change the password
+            $changePWResult = mysqli_execute_query(
+                $db,
+                "UPDATE users SET userpass=? WHERE username=? AND userpass=?",
+                [md5($new_password), $username, md5($password)]
+            );
+
+            if ($changePWResult) {
+                // Successfully changed password
+                $response .= "<rsp stat=\"ok\"/>";
+            } else {
+                // Could not update the password; log the MySQL error
+                $error_message = mysqli_error($db);
+                $response .= "<rsp stat=\"fail\" message=\"Password change failed: $error_message\"/>";
+
+                $file = "C:/xampp/htdocs/stickarena/change_password_errors.log";
+                file_put_contents(
+                    $file,
+                    date("Y-m-d H:i:s") . " - Change Password SQL error: " . $error_message . PHP_EOL,
+                    FILE_APPEND
+                );
+            }
+
+        } else {
+            // User not found or password incorrect
+            $response .= $failed_login;
+
+            $file = "C:/xampp/htdocs/stickarena/change_password_errors.log";
+            file_put_contents(
+                $file,
+                date("Y-m-d H:i:s") . " - Failed password change attempt for user: $username. "
+                . "SQL error: " . mysqli_error($db) . PHP_EOL,
+                FILE_APPEND
+            );
+        }
+    }
+
 //} else if($method=="xgen.users.items.list") 
 //{
 // 		arguments: game_id, username
