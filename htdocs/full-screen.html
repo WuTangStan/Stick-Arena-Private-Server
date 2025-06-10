@@ -1,0 +1,220 @@
+    <!DOCTYPE html>
+    <html lang="en">
+   <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Play Stick Arena Online | Free Private Server</title>
+
+  <meta name="description" content="Stick Arena is back online in 2025! Play the original multiplayer Flash game on an active private server with mods, custom heads, and free labpass.">
+  <meta name="robots" content="index, follow">
+  <meta name="author" content="OSAPS Community">
+  <meta name="copyright" content="© 2025 Stick Arena Private Server">
+ <meta name="keywords" content="Stick Arena, play Stick Arena, Stick Arena private server, flash games, multiplayer flash game, Stick Arena 2025, OSAPS, free Stick Arena online, Stick Arena Ballistick, Stick Arena Dimensions, Stick Arena Private Server, Stick Arena Online">
+
+  <link rel="canonical" href="https://playstickarena.com/">
+
+  <meta property="og:title" content="Play Stick Arena Online | Free Private Server">
+  <meta property="og:description" content="Join the fight in Stick Arena! Now playable in 2025 with a custom private server and community support.">
+  <meta property="og:url" content="https://playstickarena.com/">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://playstickarena.com/thumbnail.jpg">
+
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Play Stick Arena Online | Free Private Server">
+  <meta name="twitter:description" content="The legendary Flash multiplayer game Stick Arena is back. Free to play with mods and active servers.">
+  <meta name="twitter:image" content="https://playstickarena.com/thumbnail.png">
+
+  <link rel="icon" href="/favicon.ico">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "Stick Arena Private Server",
+    "url": "https://playstickarena.com",
+    "description": "Play Stick Arena online in 2025 with our private server, featuring free labpass, custom heads, and mods.",
+    "publisher": {
+      "@type": "Organization",
+      "name": "OSAPS Community"
+    },
+    "sameAs": [
+      "https://discord.gg/gPEjhQpmfZ",
+      "https://www.reddit.com/r/stickarena/"
+    ]
+  }
+  </script>
+  <style>
+html, body {
+  margin: 0;
+  padding: 0;
+  background-color: black;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+#wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+    #discord-link {
+  margin-top: 20px;
+  text-align: center;
+  position: absolute;
+  bottom: 10px;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+    }
+
+    #discord-link a {
+      color: white;
+      text-decoration: none;
+      font-family: sans-serif;
+      font-size: 14px;
+      opacity: 0.6;
+    }
+
+    #discord-link a:hover {
+      opacity: 1;
+    }
+
+#ruffle-container {
+  width: 100%;
+  height: 100%;
+}
+ruffle-player {
+    width: 100vh;
+    height: 100vh;
+    left: 50%;
+    transform: translateX(-50%);
+}
+  </style>
+</head>
+
+    <body>
+    	<div id="wrapper">
+        	<div id="ruffle-container"></div>
+        	<div id="discord-link">
+            	<a href="https://discord.gg/gPEjhQpmfZ" target="_blank">Join Official OSAPS Discord</a>
+        	</div>
+    	</div>
+    <script src="ruffle.js"></script>
+    <script>
+        let ws;
+        let pendingLogin = null;
+    
+        window.GameLogin = function(username, hash) {
+            console.log("GameLogin called with:", username, hash);
+            const loginPacket = `09${username};${hash}\0`;
+    
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                console.log("🔁 Sending login packet to proxy");
+                ws.send(loginPacket);
+            } else {
+                console.warn("WebSocket not ready, queuing...");
+                pendingLogin = loginPacket;
+            }
+        };
+    
+        function debugLog(msg) {
+            const debug = document.getElementById('debug');
+            debug.innerHTML += msg + '<br>';
+            console.log(msg);
+        }
+    
+        window.addEventListener('load', () => {
+    
+            ws = new WebSocket("wss://playstickarena.com:8080");
+            ws.binaryType = "arraybuffer";
+    
+            ws.onopen = () => {
+                console.log("✅ WebSocket connected");
+                if (pendingLogin) {
+                    ws.send(pendingLogin);
+                    pendingLogin = null;
+                }
+            };
+    
+            ws.onmessage = (e) => {
+                const decoder = new TextDecoder();
+                const msg = decoder.decode(e.data);
+                console.log("📥 Server says:", msg);
+    
+                // ✅ Auto-join lobby after login success
+                if (msg.startsWith("A")) {
+                    setTimeout(() => {
+                        if (ws.readyState === WebSocket.OPEN) {
+                            console.log("📤 Sending join lobby packet...");
+                            ws.send("03_"); // Join lobby 1
+                        }
+                    }, 500); // slight delay
+                }
+            };
+    
+            ws.onerror = (err) => console.error("❌ WebSocket error", err);
+    
+            const ruffle = window.RufflePlayer.newest();
+            const player = ruffle.createPlayer();
+    
+            player.config = {
+                socketProxy: [
+                    {
+                        host: "98.84.151.65",
+                        port: 1138,
+                        proxyUrl: "wss://playstickarena.com:8080"
+                    }
+                ],
+                allowScriptAccess: true,
+                allowNetworking: "all",
+                allowFullscreen: true,
+                debug: true,
+                logLevel: "info",
+                showSwfDownload: true,
+                compatibility: {
+                    ignoreUnsupportedOpcodes: true,
+                    ignoreUnsupportedActions: true
+                }
+            };
+    
+    
+            player.addEventListener('error', (e) => {
+                debugLog('Ruffle error: ' + e.detail.error);
+            });
+    
+            document.getElementById("ruffle-container").appendChild(player);
+            player.load("full-screen.swf").catch(e => {
+                debugLog('Failed to load SWF: ' + e);
+            });
+window.addEventListener("beforeunload", function (e) {
+    e.preventDefault();
+    e.returnValue = "";
+});
+
+document.addEventListener("keyup", (e) => {
+    const rawKey = e.key;
+    const normalizedKey = rawKey.toLowerCase();
+
+    if (["w", "a", "s", "d"].includes(normalizedKey) && rawKey !== normalizedKey) {
+        e.stopImmediatePropagation();
+        e.preventDefault();
+
+        const fixedEvent = new KeyboardEvent("keyup", {
+            key: normalizedKey,
+            bubbles: true,
+            cancelable: true
+        });
+
+        window.dispatchEvent(fixedEvent);
+    }
+}, true);
+        });
+    </script>
+    
+        
+    </body>
+    </html>
