@@ -1,0 +1,129 @@
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stick Arena</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #000;
+        }
+        #ruffle-container {
+            width: 800px;
+            height: 600px;
+        }
+        #debug {
+            position: fixed;
+            top: 0;
+            left: 0;
+            background: rgba(0,0,0,0.8);
+            color: #fff;
+            padding: 10px;
+            font-family: monospace;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+    </head>
+    <body>
+    <div id="debug"></div>
+    <div id="ruffle-container"></div>
+    <script src="ruffle.js"></script>
+    <script>
+        let ws;
+        let pendingLogin = null;
+    
+        window.GameLogin = function(username, hash) {
+            console.log("GameLogin called with:", username, hash);
+            const loginPacket = `09${username};${hash}\0`;
+    
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                console.log("🔁 Sending login packet to proxy");
+                ws.send(loginPacket);
+            } else {
+                console.warn("WebSocket not ready, queuing...");
+                pendingLogin = loginPacket;
+            }
+        };
+    
+        function debugLog(msg) {
+            const debug = document.getElementById('debug');
+            debug.innerHTML += msg + '<br>';
+            console.log(msg);
+        }
+    
+        window.addEventListener('load', () => {
+    
+            ws = new WebSocket("wss://playstickarena.com:8080");
+            ws.binaryType = "arraybuffer";
+    
+            ws.onopen = () => {
+                console.log("✅ WebSocket connected");
+                if (pendingLogin) {
+                    ws.send(pendingLogin);
+                    pendingLogin = null;
+                }
+            };
+    
+            ws.onmessage = (e) => {
+                const decoder = new TextDecoder();
+                const msg = decoder.decode(e.data);
+                console.log("📥 Server says:", msg);
+    
+                // ✅ Auto-join lobby after login success
+                if (msg.startsWith("A")) {
+                    setTimeout(() => {
+                        if (ws.readyState === WebSocket.OPEN) {
+                            console.log("📤 Sending join lobby packet...");
+                            ws.send("03_"); // Join lobby 1
+                        }
+                    }, 500); // slight delay
+                }
+            };
+    
+            ws.onerror = (err) => console.error("❌ WebSocket error", err);
+    
+            const ruffle = window.RufflePlayer.newest();
+            const player = ruffle.createPlayer();
+    
+            player.config = {
+                socketProxy: [
+                    {
+                        host: "98.84.151.65",
+                        port: 1138,
+                        proxyUrl: "wss://playstickarena.com:8080"
+                    }
+                ],
+                allowScriptAccess: true,
+                allowNetworking: "all",
+                allowFullscreen: true,
+                debug: true,
+                logLevel: "info",
+                showSwfDownload: true,
+                compatibility: {
+                    ignoreUnsupportedOpcodes: true,
+                    ignoreUnsupportedActions: true
+                }
+            };
+    
+    
+            player.addEventListener('error', (e) => {
+                debugLog('Ruffle error: ' + e.detail.error);
+            });
+    
+            document.getElementById("ruffle-container").appendChild(player);
+            player.load("SAB.swf").catch(e => {
+                debugLog('Failed to load SWF: ' + e);
+            });
+        });
+    </script>
+    
+        
+    </body>
+    </html>
