@@ -1,22 +1,3 @@
-/*
- *     THIS FILE AND PROJECT IS SUPPLIED FOR EDUCATIONAL PURPOSES ONLY.
- *
- *     This program is free software; you can redistribute it
- *     and/or modify it under the terms of the GNU General
- *     Public License as published by the Free Software
- *     Foundation; either version 2 of the License, or (at your
- *     option) any later version.
- *
- *     This program is distributed in the hope that it will be
- *     useful, but WITHOUT ANY WARRANTY; without even the
- *     implied warranty of MERCHANTABILITY or FITNESS FOR A
- *     PARTICULAR PURPOSE. See the GNU General Public License
- *     for more details.
- *
- *     You should have received a copy of the GNU General
- *     Public License along with this program; if not, write to
- *     the Free Software Foundation, Inc., 59 Temple Place,
- */
 package ballistickemu.Tools;
 
 import java.util.Calendar;
@@ -33,6 +14,7 @@ import ballistickemu.Game.PacketHandlerGame;
 import ballistickemu.Lobby.PacketHandlerLobby;
 import ballistickemu.Types.StickClient;
 
+import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
@@ -71,20 +53,17 @@ public class StickNetworkHandler extends IoHandlerAdapter {
 			return;
 		}
 
-		// Fast path for policy file request
 		if (S.equalsIgnoreCase("<policy-file-request/>")) {
 			c_Client.setReceivingPolicy(true);
 			c_Client.writePolicyFile();
 			return;
 		}
 
-		// Optimize packet processing
 		if (S.length() <= 1) {
 			return;
 		}
 
 		String fix = S + "\0";
-		// Use a thread pool for packet processing
 		if (c_Client.getLobbyStatus() || (S.substring(0, 2).equalsIgnoreCase("03")
 				|| (c_Client.getName() == null && c_Client.getLobbyStatus()))) {
 			PacketHandlerLobby.HandlePacket(fix, c_Client);
@@ -113,18 +92,14 @@ public class StickNetworkHandler extends IoHandlerAdapter {
 				c_Client.getRoom().GetCR().deregisterClient(c_Client);
 				Main.getLobbyServer().getClientRegistry().deregisterClient(c_Client);
 			}
-			try {
-					PreparedStatement updateOffline = DatabaseTools.getDbConnection()
-							.prepareStatement("UPDATE `users` SET `isOnline` = 0 WHERE `UID` = ?");
-					updateOffline.setInt(1, c_Client.getDbID());
-					updateOffline.executeUpdate();
-			} catch (SQLException e) {
-					LOGGER.warn("Error while setting isOnline=0 for UID: " + c_Client.getDbID(), e);
-			}
 
-			/*
-			 * try { c_Client.finalize(); } catch (Throwable t) {}
-			 */
+			try (Connection conn = DatabaseTools.getDbConnection();
+				 PreparedStatement updateOffline = conn.prepareStatement("UPDATE `users` SET `isOnline` = 0 WHERE `UID` = ?")) {
+				updateOffline.setInt(1, c_Client.getDbID());
+				updateOffline.executeUpdate();
+			} catch (SQLException e) {
+				LOGGER.warn("Error while setting isOnline=0 for UID: " + c_Client.getDbID(), e);
+			}
 		}
 	}
 }

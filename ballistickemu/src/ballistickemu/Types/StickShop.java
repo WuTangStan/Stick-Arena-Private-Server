@@ -1,4 +1,5 @@
 package ballistickemu.Types;
+import java.sql.Connection;
 
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -19,37 +20,36 @@ public class StickShop {
 		this.ShopList = new LinkedHashMap<>();
 	}
 
-	public int getPriceByItemID(StickClient client, int itemID) {
-		if (this.ShopList.containsKey(itemID)) {
-			return (this.ShopList.get(itemID)).intValue();
-		}
-		if (itemID == 240 && client.getPass()) {
-			try {
-				PreparedStatement ps = DatabaseTools.getDbConnection().prepareStatement(
-						"SELECT COUNT(id) AS mapSlots FROM inventory WHERE userid = ? AND itemid = ?");
-				ps.setInt(1, client.getDbID());
-				ps.setInt(2, 240);
-				ResultSet set = ps.executeQuery();
+public int getPriceByItemID(StickClient client, int itemID) {
+	if (this.ShopList.containsKey(itemID)) {
+		return this.ShopList.get(itemID);
+	}
+	if (itemID == 240 && client.getPass()) {
+		String query = "SELECT COUNT(id) AS mapSlots FROM inventory WHERE userid = ? AND itemid = ?";
+		try (
+			Connection conn = DatabaseTools.getDbConnection();
+			PreparedStatement ps = conn.prepareStatement(query)
+		) {
+			ps.setInt(1, client.getDbID());
+			ps.setInt(2, 240);
+			try (ResultSet set = ps.executeQuery()) {
 				if (set.next()) {
 					int mapSlots = set.getInt("mapSlots");
 					switch (mapSlots) {
-					case 0:
-						return 400;
-					case 1:
-						return 800;
-					case 2:
-						return 1500;
-					case 3:
-						return 3000;
+						case 0: return 400;
+						case 1: return 800;
+						case 2: return 1500;
+						case 3: return 3000;
 					}
 				}
-			} catch (SQLException e) {
-				LOGGER.warn("There was a problem buying a map slot.");
 			}
+		} catch (SQLException e) {
+			LOGGER.warn("There was a problem buying a map slot.");
 		}
-
-		return -1;
 	}
+	return -1;
+}
+
 
 	public boolean PopulateShop() {
 		try {

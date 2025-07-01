@@ -18,6 +18,7 @@
  *     the Free Software Foundation, Inc., 59 Temple Place,
  */
 package ballistickemu.Types;
+import java.sql.Connection;
 
 import org.apache.mina.core.session.IoSession;
 import org.slf4j.Logger;
@@ -342,24 +343,24 @@ public class StickClient {
 		return this.HasPass;
 	}
 
-	public boolean getPassDb() {
-		try {
-			PreparedStatement ps = DatabaseTools.getDbConnection()
-					.prepareStatement("SELECT labpass FROM `users` WHERE `UID` = ?");
-			ps.setInt(1, this.getDbID());
-			ResultSet rs = ps.executeQuery();
-			rs.next();
-			int pass = rs.getInt(1);
-			if (pass == 1) {
-				this.HasPass = true;
-			} else {
-				this.HasPass = false;
+public boolean getPassDb() {
+	try (Connection conn = DatabaseTools.getDbConnection();
+	     PreparedStatement ps = conn.prepareStatement("SELECT labpass FROM `users` WHERE `UID` = ?")) {
+
+		ps.setInt(1, this.getDbID());
+		try (ResultSet rs = ps.executeQuery()) {
+			if (rs.next()) {
+				int pass = rs.getInt(1);
+				this.HasPass = (pass == 1);
 			}
-		} catch (SQLException e) {
-			LOGGER.info("Error checking lab pass data: ", e);
 		}
-		return this.HasPass;
+
+	} catch (SQLException e) {
+		LOGGER.info("Error checking lab pass data: ", e);
 	}
+	return this.HasPass;
+}
+
 	
 	public boolean getMuteStatus() {
 		return this.IsMuted;
@@ -601,23 +602,28 @@ public class StickClient {
 		return this.colour;
 	}
 
-	private void setSelectedInDB(StickItem toChange) {
-		try {
-			if (toChange != null) {
-				PreparedStatement ps = DatabaseTools.getDbConnection().prepareStatement(
-						"UPDATE `inventory` SET `selected` = 0 WHERE `itemtype` = ? AND `userid` = ?");
-				ps.setInt(1, toChange.getitemType());
-				ps.setInt(2, this.dbID);
-				ps.executeUpdate();
-				ps = DatabaseTools.getDbConnection()
-						.prepareStatement("UPDATE `inventory` SET `selected` = 1 WHERE `id` = ? AND `userid` = ?");
-				ps.setInt(1, toChange.getItemDBID());
-				ps.setInt(2, this.dbID);
-				ps.executeUpdate();
-			}
-		} catch (SQLException e) {
+private void setSelectedInDB(StickItem toChange) {
+	if (toChange == null) return;
+
+	try (Connection conn = DatabaseTools.getDbConnection()) {
+		try (PreparedStatement ps1 = conn.prepareStatement(
+				"UPDATE `inventory` SET `selected` = 0 WHERE `itemtype` = ? AND `userid` = ?")) {
+			ps1.setInt(1, toChange.getitemType());
+			ps1.setInt(2, this.dbID);
+			ps1.executeUpdate();
 		}
+
+		try (PreparedStatement ps2 = conn.prepareStatement(
+				"UPDATE `inventory` SET `selected` = 1 WHERE `id` = ? AND `userid` = ?")) {
+			ps2.setInt(1, toChange.getItemDBID());
+			ps2.setInt(2, this.dbID);
+			ps2.executeUpdate();
+		}
+	} catch (SQLException e) {
+		LOGGER.warn("Error updating selected item in DB for user ID " + this.dbID, e);
 	}
+}
+
 
 	public void setUpAsQuickplay() {
 		this.IsQuickplayChar = true;
@@ -626,31 +632,30 @@ public class StickClient {
 		this.Inventory = QuickplayTool.getRandomInventory();
 	}
 
-    public int getRedeemableDb() {
-        try {
-            PreparedStatement ps = DatabaseTools.getDbConnection()
-                    .prepareStatement("SELECT redeemable FROM users WHERE UID = ?");
-            ps.setInt(1, this.getDbID());
-            ResultSet rs = ps.executeQuery();
-            if (rs.next()) {
-                this.redeemable = rs.getInt("redeemable");
-            }
-        } catch (SQLException e) {
-            LOGGER.warn("Exception retrieving redeemable value for user " + this.getUID() + ". Exception thrown: ", e);
-        }
-        return this.redeemable;
-    }
+	public int getRedeemableDb() {
+			try (Connection conn = DatabaseTools.getDbConnection();
+					PreparedStatement ps = conn.prepareStatement("SELECT redeemable FROM users WHERE UID = ?")) {
+					ps.setInt(1, this.getDbID());
+					ResultSet rs = ps.executeQuery();
+					if (rs.next()) {
+							this.redeemable = rs.getInt("redeemable");
+					}
+			} catch (SQLException e) {
+					LOGGER.warn("Exception retrieving redeemable value for user " + this.getUID() + ". Exception thrown: ", e);
+			}
+			return this.redeemable;
+	}
 
-    public void updateRedeemable(int newValue) {
-        try {
-            PreparedStatement ps = DatabaseTools.getDbConnection().prepareStatement(
-                "UPDATE users SET redeemable = ? WHERE UID = ?");
-            ps.setInt(1, newValue);
-            ps.setInt(2, this.getDbID());
-            ps.executeUpdate();
-            this.redeemable = newValue;
-        } catch (SQLException e) {
-            LOGGER.warn("Exception updating redeemable value for user " + this.getUID() + ". Exception thrown: ", e);
-        }
-    }
+	public void updateRedeemable(int newValue) {
+			try (Connection conn = DatabaseTools.getDbConnection();
+					PreparedStatement ps = conn.prepareStatement(
+							"UPDATE users SET redeemable = ? WHERE UID = ?")) {
+					ps.setInt(1, newValue);
+					ps.setInt(2, this.getDbID());
+					ps.executeUpdate();
+					this.redeemable = newValue;
+			} catch (SQLException e) {
+					LOGGER.warn("Exception updating redeemable value for user " + this.getUID() + ". Exception thrown: ", e);
+			}
+	}
 }

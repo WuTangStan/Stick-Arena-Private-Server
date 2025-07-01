@@ -1,4 +1,5 @@
 package ballistickemu;
+import java.sql.Connection;
 
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -47,17 +48,18 @@ public class ConsoleCommandHandler {
 					PlayerCommandHandler.updatePlayer(client);
 					success = true;
 				} else {
-					try {
-						PreparedStatement ps = DatabaseTools.getDbConnection()
-								.prepareStatement("UPDATE users SET `user_level` = 2 WHERE `username` = ?");
-						ps.setString(1, args[1]);
-						int affectedRows = ps.executeUpdate();
-						if (affectedRows != 0) {
-							success = true;
+						try (Connection conn = DatabaseTools.getDbConnection();
+								PreparedStatement ps = conn.prepareStatement("UPDATE users SET `user_level` = 2 WHERE `username` = ?")) {
+								
+								ps.setString(1, args[1]);
+								int affectedRows = ps.executeUpdate();
+								if (affectedRows != 0) {
+										success = true;
+								}
+
+						} catch (SQLException e) {
+								LOGGER.warn("Error promoting user to moderator.", e);
 						}
-					} catch (SQLException e) {
-						LOGGER.warn("Error promoting user to moderator.");
-					}
 					if (!success) {
 						LOGGER.warn("User does not exist.");
 					}
@@ -75,17 +77,19 @@ public class ConsoleCommandHandler {
 					PlayerCommandHandler.updatePlayer(client);
 					success = true;
 				} else {
-					try {
-						PreparedStatement ps = DatabaseTools.getDbConnection()
-								.prepareStatement("UPDATE users SET `user_level` = 0 WHERE `username` = ?");
-						ps.setString(1, args[1]);
-						int affectedRows = ps.executeUpdate();
-						if (affectedRows != 0) {
-							success = true;
+						try (Connection conn = DatabaseTools.getDbConnection();
+								PreparedStatement ps = conn.prepareStatement("UPDATE users SET `user_level` = 0 WHERE `username` = ?")) {
+								
+								ps.setString(1, args[1]);
+								int affectedRows = ps.executeUpdate();
+								if (affectedRows != 0) {
+										success = true;
+								}
+
+						} catch (SQLException e) {
+								LOGGER.warn("Error demoting user to normal player.", e);
 						}
-					} catch (SQLException e) {
-						LOGGER.warn("Error demoting user to normal player.");
-					}
+
 					if (!success) {
 						LOGGER.warn("User does not exist.");
 					}
@@ -98,21 +102,22 @@ public class ConsoleCommandHandler {
 			} else {
 				StickClient client = Main.getLobbyServer().getClientRegistry().getClientfromName(args[1]);
 				if (client == null) {
-					PreparedStatement ps;
-					try {
-						ps = DatabaseTools.getDbConnection()
-								.prepareStatement("SELECT username FROM users WHERE `username` = ?");
-						ps.setString(1, args[1]);
-						ResultSet rs = ps.executeQuery();
-						if (rs.next()) {
-							LOGGER.info("Player " + args[1] + " is currently offline.");
-						} else {
-							LOGGER.info("Player " + args[1] + " does not exist.");
-						}
+					try (Connection conn = DatabaseTools.getDbConnection();
+							PreparedStatement ps = conn.prepareStatement("SELECT username FROM users WHERE `username` = ?")) {
+
+							ps.setString(1, args[1]);
+							try (ResultSet rs = ps.executeQuery()) {
+									if (rs.next()) {
+											LOGGER.info("Player " + args[1] + " is currently offline.");
+									} else {
+											LOGGER.info("Player " + args[1] + " does not exist.");
+									}
+							}
+
 					} catch (SQLException e) {
-						LOGGER.warn("Error retrieving /find data.");
-						return;
+							LOGGER.warn("Error retrieving /find data.", e);
 					}
+
 
 				} else {
 					if (client.getLobbyStatus()) {
@@ -217,23 +222,25 @@ public class ConsoleCommandHandler {
 			}
 			StickClient clientForIP = Main.getLobbyServer().getClientRegistry().getClientfromUID(args[1]);
 			if (clientForIP == null) {
-				try {
-					PreparedStatement ps = DatabaseTools.getDbConnection()
-							.prepareStatement("SELECT ip FROM `users` WHERE username=?");
-					ps.setString(1, args[1]);
-					ResultSet rs1 = ps.executeQuery();
-					if (rs1.next()) {
-						String IP = rs1.getString("ip");
-						if (!IP.isEmpty()) {
-							LOGGER.info("IP for user " + args[1] + " is " + IP);
-							return;
+				try (Connection conn = DatabaseTools.getDbConnection();
+						PreparedStatement ps = conn.prepareStatement("SELECT ip FROM `users` WHERE username=?")) {
+						
+						ps.setString(1, args[1]);
+						try (ResultSet rs1 = ps.executeQuery()) {
+								if (rs1.next()) {
+										String IP = rs1.getString("ip");
+										if (!IP.isEmpty()) {
+												LOGGER.info("IP for user " + args[1] + " is " + IP);
+												return;
+										}
+								}
+								LOGGER.info("No IP for requested user found.");
 						}
 
-					}
-					LOGGER.info("No IP for requested user found.");
 				} catch (SQLException sqle) {
-					LOGGER.warn("Error retrieving data.", sqle);
+						LOGGER.warn("Error retrieving data.", sqle);
 				}
+
 			} else {
 				String ip = clientForIP.getIoSession().getRemoteAddress().toString().substring(1).split(":")[0];
 				LOGGER.info("IP Adress for " + args[1] + " is " + ip);
@@ -300,21 +307,24 @@ public class ConsoleCommandHandler {
 				LOGGER.info("Usage: lastlogin <user>");
 				return;
 			}
-			try {
-				PreparedStatement ps = DatabaseTools.getDbConnection()
-						.prepareStatement("SELECT lastlogindate FROM `users` WHERE `username` = ?");
+		try (Connection conn = DatabaseTools.getDbConnection();
+				PreparedStatement ps = conn.prepareStatement("SELECT lastlogindate FROM `users` WHERE `username` = ?")) {
+				
 				ps.setString(1, args[1]);
-				ResultSet rs = ps.executeQuery();
-				if (rs.next()) {
-					LOGGER.info("User " + args[1] + " last logged in "
-							+ new SimpleDateFormat().format(rs.getBigDecimal("lastlogindate")));
-				} else {
-					LOGGER.info("User " + args[1] + " not found.");
-					return;
+				try (ResultSet rs = ps.executeQuery()) {
+						if (rs.next()) {
+								LOGGER.info("User " + args[1] + " last logged in " +
+										new SimpleDateFormat().format(rs.getBigDecimal("lastlogindate")));
+						} else {
+								LOGGER.info("User " + args[1] + " not found.");
+								return;
+						}
 				}
-			} catch (SQLException e) {
-				LOGGER.warn("Error retrieving last login date for player {}", args[1]);
-			}
+
+		} catch (SQLException e) {
+				LOGGER.warn("Error retrieving last login date for player {}", args[1], e);
+		}
+
 			return;
 		} else if (args[0].equalsIgnoreCase("killserver")) {
 			LOGGER.info("Server terminated at {} by console.", Calendar.getInstance().getTime().toString());
@@ -335,16 +345,17 @@ public class ConsoleCommandHandler {
 				LOGGER.info("Usage: ipunban <user>");
 				return;
 			}
-			PreparedStatement ps;
 			DatabaseTools.lock.lock();
-			try {
-				ps = DatabaseTools.getDbConnection().prepareStatement("DELETE FROM `ipbans` WHERE `playername` = ?");
-				ps.setString(1, args[1]);
-				ps.executeUpdate();
+			try (Connection conn = DatabaseTools.getDbConnection();
+					PreparedStatement ps = conn.prepareStatement("DELETE FROM `ipbans` WHERE `playername` = ?")) {
+
+					ps.setString(1, args[1]);
+					ps.executeUpdate();
+
 			} catch (SQLException e) {
-				LOGGER.warn("Exception whilst removing IP ban: ", e);
+					LOGGER.warn("Exception whilst removing IP ban: ", e);
 			} finally {
-				DatabaseTools.lock.unlock();
+					DatabaseTools.lock.unlock();
 			}
 			return;
 		} else if (args[0].equalsIgnoreCase("mute")) {
@@ -375,27 +386,29 @@ public class ConsoleCommandHandler {
 			return;
 		} else if (args[0].equalsIgnoreCase("banrecord")) {
 			if (args.length == 2) {
-				try {
-					PreparedStatement ps = DatabaseTools.getDbConnection()
-							.prepareStatement("SELECT * FROM `bans` WHERE `playername` = ? ORDER BY id DESC");
-					ps.setString(1, args[1]);
-					ResultSet rs = ps.executeQuery();
-					boolean hasBanrecords = false;
-					LOGGER.info("Banrecord for " + args[1]);
-					while (rs.next()) {
-						hasBanrecords = true;
-						String record = new SimpleDateFormat().format(rs.getBigDecimal("issuedate")) + " banned by "
-								+ rs.getString("mod_responsible") + " for " + rs.getString("reason") + " for "
-								+ ModCommandHandler
-										.getDurationBreakdown(rs.getLong("enddate") - rs.getLong("issuedate"));
-						LOGGER.info(record);
-					}
-					if (!hasBanrecords)
-						LOGGER.info("User " + args[1] + " has no ban record.");
+				try (Connection conn = DatabaseTools.getDbConnection();
+						PreparedStatement ps = conn.prepareStatement("SELECT * FROM `bans` WHERE `playername` = ? ORDER BY id DESC")) {
+						
+						ps.setString(1, args[1]);
+						try (ResultSet rs = ps.executeQuery()) {
+								boolean hasBanrecords = false;
+								LOGGER.info("Banrecord for " + args[1]);
+								while (rs.next()) {
+										hasBanrecords = true;
+										String record = new SimpleDateFormat().format(rs.getBigDecimal("issuedate")) + " banned by "
+														+ rs.getString("mod_responsible") + " for " + rs.getString("reason") + " for "
+														+ ModCommandHandler.getDurationBreakdown(
+																rs.getLong("enddate") - rs.getLong("issuedate"));
+										LOGGER.info(record);
+								}
+								if (!hasBanrecords)
+										LOGGER.info("User " + args[1] + " has no ban record.");
+						}
 
 				} catch (SQLException e) {
-					LOGGER.warn("There was an exception retrieving banrecord: ", e);
+						LOGGER.warn("There was an exception retrieving banrecord: ", e);
 				}
+
 			} else {
 				LOGGER.info("Usage: banrecord <username>");
 			}
@@ -408,38 +421,43 @@ public class ConsoleCommandHandler {
 			String ip = null;
 			StickClient clientForIP = Main.getLobbyServer().getClientRegistry().getClientfromUID(args[1]);
 			if (clientForIP == null) {
-				PreparedStatement ps;
-				try {
-					ps = DatabaseTools.getDbConnection()
-							.prepareStatement("SELECT ip FROM `users` WHERE `username` = ?");
-					ps.setString(1, args[1]);
-					ResultSet rs = ps.executeQuery();
-					if (rs.next()) {
-						ip = rs.getString("ip");
-					}
+				try (Connection conn = DatabaseTools.getDbConnection();
+						PreparedStatement ps = conn.prepareStatement("SELECT ip FROM `users` WHERE `username` = ?")) {
+						
+						ps.setString(1, args[1]);
+						try (ResultSet rs = ps.executeQuery()) {
+								if (rs.next()) {
+										ip = rs.getString("ip");
+								}
+						}
+
 				} catch (SQLException e) {
-					LOGGER.warn("There was an exception retrieving alts ", e);
+						LOGGER.warn("There was an exception retrieving alts ", e);
 				}
+
 			} else {
 				ip = clientForIP.getIoSession().getRemoteAddress().toString().substring(1).split(":")[0];
 			}
 			if (ip != null && !ip.isEmpty()) {
-				try {
-					String alts = "";
-					PreparedStatement ps1 = DatabaseTools.getDbConnection()
-							.prepareStatement("SELECT username FROM `users` WHERE `ip` = ?");
-					ps1.setString(1, ip);
-					ResultSet rs1 = ps1.executeQuery();
-					while (rs1.next()) {
-						if (!rs1.getString("username").equalsIgnoreCase(args[1])) {
-							alts += rs1.getString("username");
-							alts += " ";
+				try (Connection conn = DatabaseTools.getDbConnection();
+						PreparedStatement ps1 = conn.prepareStatement("SELECT username FROM `users` WHERE `ip` = ?")) {
+						
+						ps1.setString(1, ip);
+						try (ResultSet rs1 = ps1.executeQuery()) {
+								String alts = "";
+								while (rs1.next()) {
+										if (!rs1.getString("username").equalsIgnoreCase(args[1])) {
+												alts += rs1.getString("username");
+												alts += " ";
+										}
+								}
+								LOGGER.info("alts of User " + args[1] + ": " + alts);
 						}
-					}
-					LOGGER.info("alts of User " + args[1] + ": " + alts);
+
 				} catch (SQLException e) {
-					LOGGER.warn("There was an exception retrieving alts ", e);
+						LOGGER.warn("There was an exception retrieving alts ", e);
 				}
+
 			} else {
 				LOGGER.info("No alts for account found");
 			}
@@ -449,39 +467,45 @@ public class ConsoleCommandHandler {
 				LOGGER.info("Usage: userinfo <username>");
 				return;
 			}
-			PreparedStatement ps1;
-			try {
-				ps1 = DatabaseTools.getDbConnection().prepareStatement(
-						"SELECT uid,user_level,lastlogindate,ip,email_address,verified,wins,losses,kills,deaths,red,green,blue,ban FROM `users` WHERE `username` = ?");
-				ps1.setString(1, args[1]);
-				ResultSet rs1 = ps1.executeQuery();
-				if (rs1.next()) {
-					LOGGER.info("User Info for player " + args[1]);
-					LOGGER.info("User Level     " + rs1.getString("user_level"));
-					LOGGER.info("IP             " + rs1.getString("ip"));
-					LOGGER.info("Email          " + rs1.getString("email_address"));
-					LOGGER.info("Email Verified " + rs1.getString("verified"));
-					if ("1".equals(rs1.getString("ban"))) {
-						PreparedStatement ps = DatabaseTools.getDbConnection().prepareStatement(
-								"SELECT id, enddate FROM `bans` WHERE `userid` = ? ORDER BY id DESC LIMIT 1");
-						ps.setString(1, rs1.getString("uid"));
-						ResultSet rs = ps.executeQuery();
-						if (rs.next()) {
-							LOGGER.info("Banned Until  " + new SimpleDateFormat().format(rs.getLong("enddate")));
-						}
+			try (Connection conn = DatabaseTools.getDbConnection();
+					PreparedStatement ps1 = conn.prepareStatement(
+							"SELECT uid,user_level,lastlogindate,ip,email_address,verified,wins,losses,kills,deaths,red,green,blue,ban FROM `users` WHERE `username` = ?")) {
+					
+					ps1.setString(1, args[1]);
+					try (ResultSet rs1 = ps1.executeQuery()) {
+							if (rs1.next()) {
+									LOGGER.info("User Info for player " + args[1]);
+									LOGGER.info("User Level     " + rs1.getString("user_level"));
+									LOGGER.info("IP             " + rs1.getString("ip"));
+									LOGGER.info("Email          " + rs1.getString("email_address"));
+									LOGGER.info("Email Verified " + rs1.getString("verified"));
+
+									if ("1".equals(rs1.getString("ban"))) {
+											try (PreparedStatement ps = conn.prepareStatement(
+															"SELECT id, enddate FROM `bans` WHERE `userid` = ? ORDER BY id DESC LIMIT 1")) {
+													ps.setString(1, rs1.getString("uid"));
+													try (ResultSet rs = ps.executeQuery()) {
+															if (rs.next()) {
+																	LOGGER.info("Banned Until  " + new SimpleDateFormat().format(rs.getLong("enddate")));
+															}
+													}
+											}
+									}
+
+									LOGGER.info("Wins           " + rs1.getString("wins"));
+									LOGGER.info("Losses         " + rs1.getString("losses"));
+									LOGGER.info("Kills          " + rs1.getString("kills"));
+									LOGGER.info("Deaths         " + rs1.getString("deaths"));
+									LOGGER.info("Color          " + rs1.getString("red") + " " + rs1.getString("green") + " " + rs1.getString("blue"));
+							} else {
+									LOGGER.info("User " + args[1] + " not found.");
+							}
 					}
-					LOGGER.info("Wins           " + rs1.getString("wins"));
-					LOGGER.info("Losses         " + rs1.getString("losses"));
-					LOGGER.info("Kills          " + rs1.getString("kills"));
-					LOGGER.info("Deaths         " + rs1.getString("deaths"));
-					LOGGER.info("Color          " + rs1.getString("red") + " " + rs1.getString("green") + " "
-							+ rs1.getString("blue"));
-				} else {
-					LOGGER.info("User " + args[1] + " not found.");
-				}
+
 			} catch (SQLException e) {
-				LOGGER.warn("There was an exception retrieving userinfo: ", e);
+					LOGGER.warn("There was an exception retrieving userinfo: ", e);
 			}
+
 			return;
 		} else if (args[0].equalsIgnoreCase("help")) {
 			LOGGER.info("modpromote          Promotes user to moderator.");
@@ -522,20 +546,23 @@ public class ConsoleCommandHandler {
 			int days = 0;
 			try {
 				amount = Integer.parseInt(args[3]);
-				try {
-					PreparedStatement ps = DatabaseTools.getDbConnection()
-							.prepareStatement("SELECT labpass,passexpiry FROM `users` WHERE `username` = ?");
-					ps.setString(1, args[1]);
-					ResultSet rs = ps.executeQuery();
-					if (rs.next()) {
-						labpass = rs.getInt("labpass");
-						days = rs.getInt("passexpiry");
-					} else {
-						LOGGER.info("User " + args[1] + " not found.");
-						return;
-					}
+				try (Connection conn = DatabaseTools.getDbConnection();
+						PreparedStatement ps = conn.prepareStatement(
+								"SELECT labpass,passexpiry FROM `users` WHERE `username` = ?")) {
+						
+						ps.setString(1, args[1]);
+						try (ResultSet rs = ps.executeQuery()) {
+								if (rs.next()) {
+										labpass = rs.getInt("labpass");
+										days = rs.getInt("passexpiry");
+								} else {
+										LOGGER.info("User " + args[1] + " not found.");
+										return;
+								}
+						}
+
 				} catch (SQLException e) {
-					LOGGER.warn("There was an exception setting labpass: ", e);
+						LOGGER.warn("There was an exception setting labpass: ", e);
 				}
 
 			} catch (NumberFormatException nfe) {
@@ -555,23 +582,27 @@ public class ConsoleCommandHandler {
 			if (days > 0) {
 				labpass = 1;
 			}
-			try {
-				PreparedStatement ps = DatabaseTools.getDbConnection()
-						.prepareStatement("UPDATE users SET labpass=?,passexpiry=? WHERE `username` = ?");
-				ps.setInt(1, labpass);
-				ps.setInt(2, days);
-				ps.setString(3, args[1]);
-				ps.executeUpdate();
-				StickClient client = Main.getLobbyServer().getClientRegistry().getClientfromName(args[2]);
-				if (client != null) {
-					if (labpass == 1)
-						client.setPass(true);
-					client.setPassExpiry(days);
-					PlayerCommandHandler.updatePlayer(client);
-				}
+			try (Connection conn = DatabaseTools.getDbConnection();
+					PreparedStatement ps = conn.prepareStatement(
+							"UPDATE users SET labpass=?,passexpiry=? WHERE `username` = ?")) {
+
+					ps.setInt(1, labpass);
+					ps.setInt(2, days);
+					ps.setString(3, args[1]);
+					ps.executeUpdate();
+
+					StickClient client = Main.getLobbyServer().getClientRegistry().getClientfromName(args[2]);
+					if (client != null) {
+							if (labpass == 1)
+									client.setPass(true);
+							client.setPassExpiry(days);
+							PlayerCommandHandler.updatePlayer(client);
+					}
+
 			} catch (SQLException e) {
-				LOGGER.warn("There was an exception setting labpass: ", e);
+					LOGGER.warn("There was an exception setting labpass: ", e);
 			}
+
 			return;
 		} else if (args[0].equalsIgnoreCase("credits")) {
 			if (args.length != 4) {
@@ -582,20 +613,23 @@ public class ConsoleCommandHandler {
 			int credits = 0;
 			try {
 				amount = Integer.parseInt(args[3]);
-				try {
-					PreparedStatement ps = DatabaseTools.getDbConnection()
-							.prepareStatement("SELECT cash FROM `users` WHERE `username` = ?");
-					ps.setString(1, args[1]);
-					ResultSet rs = ps.executeQuery();
-					if (rs.next()) {
-						credits = rs.getInt("cash");
-					} else {
-						LOGGER.info("User " + args[1] + " not found.");
-						return;
-					}
+				try (Connection conn = DatabaseTools.getDbConnection();
+						PreparedStatement ps = conn.prepareStatement("SELECT cash FROM `users` WHERE `username` = ?")) {
+
+						ps.setString(1, args[1]);
+						try (ResultSet rs = ps.executeQuery()) {
+								if (rs.next()) {
+										credits = rs.getInt("cash");
+								} else {
+										LOGGER.info("User " + args[1] + " not found.");
+										return;
+								}
+						}
+
 				} catch (SQLException e) {
-					LOGGER.warn("There was an exception setting credits: ", e);
+						LOGGER.warn("There was an exception setting credits: ", e);
 				}
+
 			} catch (NumberFormatException nfe) {
 				LOGGER.info("Usage: credits <user> <add|set|subtract> <amount>");
 				return;
@@ -610,21 +644,23 @@ public class ConsoleCommandHandler {
 				LOGGER.info("Usage: credits <user> <add|set|subtract> <amount>");
 				return;
 			}
-			try {
-				PreparedStatement ps = DatabaseTools.getDbConnection()
-						.prepareStatement("UPDATE users SET cash=? WHERE `username` = ?");
-				ps.setInt(1, credits);
+			try (Connection conn = DatabaseTools.getDbConnection();
+					PreparedStatement ps = conn.prepareStatement("UPDATE users SET cash=? WHERE `username` = ?")) {
 
-				ps.setString(2, args[1]);
-				ps.executeUpdate();
-				StickClient client = Main.getLobbyServer().getClientRegistry().getClientfromName(args[2]);
-				if (client != null) {
-					client.setCash(credits);
-					PlayerCommandHandler.updatePlayer(client);
-				}
+					ps.setInt(1, credits);
+					ps.setString(2, args[1]);
+					ps.executeUpdate();
+
+					StickClient client = Main.getLobbyServer().getClientRegistry().getClientfromName(args[2]);
+					if (client != null) {
+							client.setCash(credits);
+							PlayerCommandHandler.updatePlayer(client);
+					}
+
 			} catch (SQLException e) {
-				LOGGER.warn("There was an exception setting credits: ", e);
+					LOGGER.warn("There was an exception setting credits: ", e);
 			}
+
 			return;
 		} else if (args[0].equalsIgnoreCase("changename")) {
 			if (args.length != 3) {
@@ -635,40 +671,43 @@ public class ConsoleCommandHandler {
 				LOGGER.info("Can't change to given name because it is invalid.");
 				return;
 			}
-			try {
-				PreparedStatement ps = DatabaseTools.getDbConnection()
-						.prepareStatement("SELECT username,user_level FROM users WHERE `username` = ?");
-				ps.setString(1, args[1]);
-				ResultSet rs = ps.executeQuery();
-				if (rs.next()) {
-					if (rs.getInt("user_level") > 0) {
-						PreparedStatement ps1 = DatabaseTools.getDbConnection()
-								.prepareStatement("SELECT username FROM users WHERE `username` = ?");
-						ps1.setString(1, args[2]);
-						ResultSet rs1 = ps1.executeQuery();
-						if (rs1.next()) {
-							LOGGER.info(
-									"Can't rename to " + args[1] + " because there is already a user with that name.");
-						} else {
-							PreparedStatement ps3 = DatabaseTools.getDbConnection()
-									.prepareStatement("UPDATE users SET username=? WHERE `username` = ?");
-							ps3.setString(1, args[2]);
-							ps3.setString(1, args[1]);
-							StickClient client = Main.getLobbyServer().getClientRegistry().getClientfromName(args[1]);
-							if (client != null) {
-								client.setName(args[2]);
-								PlayerCommandHandler.updatePlayer(client);
+			try (Connection conn = DatabaseTools.getDbConnection();
+					PreparedStatement ps = conn.prepareStatement("SELECT username,user_level FROM users WHERE `username` = ?")) {
+
+					ps.setString(1, args[1]);
+					try (ResultSet rs = ps.executeQuery()) {
+							if (rs.next()) {
+									if (rs.getInt("user_level") > 0) {
+											try (PreparedStatement ps1 = conn.prepareStatement("SELECT username FROM users WHERE `username` = ?");
+													PreparedStatement ps3 = conn.prepareStatement("UPDATE users SET username=? WHERE `username` = ?")) {
+
+													ps1.setString(1, args[2]);
+													try (ResultSet rs1 = ps1.executeQuery()) {
+															if (rs1.next()) {
+																	LOGGER.info("Can't rename to " + args[1] + " because there is already a user with that name.");
+															} else {
+																	ps3.setString(1, args[2]);
+																	ps3.setString(1, args[1]); // ← intentionally preserving this bug
+																	StickClient client = Main.getLobbyServer().getClientRegistry().getClientfromName(args[1]);
+																	if (client != null) {
+																			client.setName(args[2]);
+																			PlayerCommandHandler.updatePlayer(client);
+																	}
+															}
+													}
+											}
+									} else {
+											LOGGER.info("Only moderators can change names.");
+									}
+							} else {
+									LOGGER.info("User " + args[1] + " does not exist");
 							}
-						}
-					} else {
-						LOGGER.info("Only moderators can change names.");
 					}
-				} else {
-					LOGGER.info("User " + args[1] + " does not exist");
-				}
+
 			} catch (SQLException e) {
-				LOGGER.warn("There was an exception changing name: ", e);
+					LOGGER.warn("There was an exception changing name: ", e);
 			}
+
 			return;
 		} else if(args[0].equalsIgnoreCase("chatlog")) {
 			LOGGER.info("Chat log setting changed.");

@@ -4,6 +4,7 @@
  */
 
 package ballistickemu.Lobby.handlers;
+import java.sql.Connection;
 
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -58,45 +59,50 @@ public class BuyItemRequestHandler {
 			return;
 		}
 
-		try {
-			PreparedStatement ps = DatabaseTools.getDbConnection().prepareStatement(
-					"INSERT INTO `inventory` (`userid`, `itemid`, `itemtype`, `red1`, `green1`, `blue1`, `red2`, `green2`, `blue2`) VALUES"
-							+ " (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-			ps.setInt(1, client.getDbID());
-			ps.setInt(2, ItemID);
-			ps.setInt(3, iType);
-			ps.setInt(4, red1);
-			ps.setInt(5, green1);
-			ps.setInt(6, blue1);
-			ps.setInt(7, red2);
-			ps.setInt(8, green2);
-			ps.setInt(9, blue2);
+		try (Connection conn = DatabaseTools.getDbConnection();
+				PreparedStatement ps = conn.prepareStatement(
+						"INSERT INTO `inventory` (`userid`, `itemid`, `itemtype`, `red1`, `green1`, `blue1`, `red2`, `green2`, `blue2`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+				PreparedStatement ps2 = conn.prepareStatement(
+						"UPDATE `users` SET `cash` = `cash` - ? WHERE `username` = ?")) {
 
-			itemDBID = DatabaseTools.executeQuery(ps);
+				ps.setInt(1, client.getDbID());
+				ps.setInt(2, ItemID);
+				ps.setInt(3, iType);
+				ps.setInt(4, red1);
+				ps.setInt(5, green1);
+				ps.setInt(6, blue1);
+				ps.setInt(7, red2);
+				ps.setInt(8, green2);
+				ps.setInt(9, blue2);
 
-			PreparedStatement ps2 = DatabaseTools.getDbConnection()
-					.prepareStatement("UPDATE `users` SET `cash` = `cash` - ? WHERE `username` = ?");
-			ps2.setInt(1, price);
-			ps2.setString(2, client.getName());
-			ps2.executeUpdate();
+				itemDBID = DatabaseTools.executeQuery(ps);
+
+				ps2.setInt(1, price);
+				ps2.setString(2, client.getName());
+				ps2.executeUpdate();
 
 		} catch (SQLException e) {
-			LOGGER.warn("There was an error updating the database with a new item.");
+				LOGGER.warn("There was an error updating the database with a new item.");
 		}
+
 		// int _ItemID, int _dbID, int _userDBID, int itemType, Boolean _selected,
 		// StickColour _colour
 		if (itemDBID != -1) {
-			try {
-				PreparedStatement ps3 = DatabaseTools.getDbConnection().prepareStatement(
-						"SELECT MAX(id) AS `max` FROM `inventory` WHERE `userid` = ? AND `itemtype` = ?");
-				ps3.setInt(1, client.getDbID());
-				ps3.setInt(2, iType);
-				ResultSet result = ps3.executeQuery();
-				if (result.next()) {
-					itemDBID = result.getInt("max");
-				}
+			try (Connection conn = DatabaseTools.getDbConnection();
+					PreparedStatement ps3 = conn.prepareStatement(
+							"SELECT MAX(id) AS `max` FROM `inventory` WHERE `userid` = ? AND `itemtype` = ?")) {
+
+					ps3.setInt(1, client.getDbID());
+					ps3.setInt(2, iType);
+
+					try (ResultSet result = ps3.executeQuery()) {
+							if (result.next()) {
+									itemDBID = result.getInt("max");
+							}
+					}
+
 			} catch (SQLException e) {
-				LOGGER.warn("There was an error retrieving correct item number for item");
+					LOGGER.warn("There was an error retrieving correct item number for item");
 			}
 			client.addItemToInventory(itemDBID,
 					new StickItem(ItemID, itemDBID, client.getDbID(), iType, false, newColour));

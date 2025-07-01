@@ -1,4 +1,5 @@
 package ballistickemu.Lobby.handlers;
+import java.sql.Connection;
 
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -41,31 +42,30 @@ public class GiveTicketHandler {
 				}
 			}
 
-			try {
-				PreparedStatement ps = DatabaseTools.getDbConnection()
-						.prepareStatement("UPDATE `users` SET `cash` = `cash` + ? WHERE `username` = ?");
+			try (Connection conn = DatabaseTools.getDbConnection();
+					PreparedStatement ps1 = conn.prepareStatement("UPDATE `users` SET `cash` = `cash` + ? WHERE `username` = ?");
+					PreparedStatement ps2 = conn.prepareStatement("UPDATE `users` SET `ticket` = ? WHERE `username` = ?");
+					PreparedStatement ps3 = conn.prepareStatement("UPDATE `users` SET `lastticket` = ? WHERE `username` = ?")) {
 
-				ps.setInt(1, prize);
-				ps.setString(2, client.getName());
-				ps.executeUpdate();
+					ps1.setInt(1, prize);
+					ps1.setString(2, client.getName());
+					ps1.executeUpdate();
 
-				PreparedStatement ps2 = DatabaseTools.getDbConnection()
-						.prepareStatement("UPDATE `users` SET `ticket` = ? WHERE `username` = ?");
+					ps2.setInt(1, 0);
+					ps2.setString(2, client.getName());
+					ps2.executeUpdate();
 
-				ps2.setInt(1, 0);
-				ps2.setString(2, client.getName());
-				ps2.executeUpdate();
+					ps3.setLong(1, System.currentTimeMillis());
+					ps3.setString(2, client.getName());
+					ps3.executeUpdate();
 
-				PreparedStatement ps3 = DatabaseTools.getDbConnection()
-						.prepareStatement("UPDATE `users` SET `lastticket` = ? WHERE `username` = ?");
-				ps3.setLong(1, System.currentTimeMillis());
-				ps3.setString(2, client.getName());
-				ps3.executeUpdate();
-				client.setTicket(0);
+					client.setTicket(0);
+
 			} catch (SQLException e) {
-				client.getAnnounce("There was an error collecting creds ticket, try again later");
-				LOGGER.warn("There was an error accepting cred ticket for a user on database.");
+					client.getAnnounce("There was an error collecting creds ticket, try again later");
+					LOGGER.warn("There was an error accepting cred ticket for a user on database.");
 			}
+
 		}
 	}
 }

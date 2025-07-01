@@ -4,6 +4,7 @@
  */
 
 package ballistickemu.Lobby.handlers;
+import java.sql.Connection;
 
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -219,48 +220,52 @@ public class PlayerCommandHandler {
 			return;
 		}
 		if (C_Splitted[0].equalsIgnoreCase("!redeemcreds") && client.getPass()) {
-			client.getRedeemableDb();
-			if (client.getRedeemable() > 0) {
-					client.updateRedeemable(client.getRedeemable() - 1);
-					try {
-							PreparedStatement ps = DatabaseTools.getDbConnection()
-									.prepareStatement("UPDATE users SET cash = ? WHERE UID = ?");
-							ps.setInt(1, 200000);
-							ps.setInt(2, client.getDbID());
-							ps.executeUpdate();
-							client.writeCallbackMessage("200K creds have been added to your account.");
-					} catch (SQLException e) {
-							LOGGER.warn("Error setting cash for user " + client.getName() + ". Exception: ", e);
-							client.writeCallbackMessage("Error adding credits to your account.");
-					}
-			} else {
-					client.writeCallbackMessage("Play more games for a chance to win a lucky prize");
-			}
-			return;
+				client.getRedeemableDb();
+				if (client.getRedeemable() > 0) {
+						client.updateRedeemable(client.getRedeemable() - 1);
+						Connection conn = null;
+						try {
+								conn = DatabaseTools.getDbConnection();
+								PreparedStatement ps = conn.prepareStatement("UPDATE users SET cash = ? WHERE UID = ?");
+								ps.setInt(1, 200000);
+								ps.setInt(2, client.getDbID());
+								ps.executeUpdate();
+								client.writeCallbackMessage("200K creds have been added to your account.");
+						} catch (SQLException e) {
+								LOGGER.warn("Error setting cash for user " + client.getName() + ". Exception: ", e);
+								client.writeCallbackMessage("Error adding credits to your account.");
+						}
+				} else {
+						client.writeCallbackMessage("Play more games for a chance to win a lucky prize");
+				}
+				return;
 		}
+
 		if (C_Splitted[0].equalsIgnoreCase("!viewcolor") && client.getPass()) {
-			try {
-					PreparedStatement ps = DatabaseTools.getDbConnection()
-							.prepareStatement("SELECT red, green, blue FROM users WHERE UID = ?");
-					ps.setInt(1, client.getDbID());
-					ResultSet rs = ps.executeQuery();
+				Connection conn = null;
+				try {
+						conn = DatabaseTools.getDbConnection();
+						PreparedStatement ps = conn.prepareStatement("SELECT red, green, blue FROM users WHERE UID = ?");
+						ps.setInt(1, client.getDbID());
+						ResultSet rs = ps.executeQuery();
 
-					if (rs.next()) {
-							int red = rs.getInt("red");
-							int green = rs.getInt("green");
-							int blue = rs.getInt("blue");
+						if (rs.next()) {
+								int red = rs.getInt("red");
+								int green = rs.getInt("green");
+								int blue = rs.getInt("blue");
 
-            	String colorMessage = "Your colors are - Red: " + red + ", Green: " + green + ", Blue: " + blue;
-							client.writeCallbackMessage(colorMessage);
-					} else {
-							client.writeCallbackMessage("Error: Could not find color data for your account.");
-					}
-			} catch (SQLException e) {
-					LOGGER.warn("Exception when querying color data for user: " + client.getName(), e);
-					client.writeCallbackMessage("Error retrieving your color data.");
-			}
-			return;
+								String colorMessage = "Your colors are - Red: " + red + ", Green: " + green + ", Blue: " + blue;
+								client.writeCallbackMessage(colorMessage);
+						} else {
+								client.writeCallbackMessage("Error: Could not find color data for your account.");
+						}
+				} catch (SQLException e) {
+						LOGGER.warn("Exception when querying color data for user: " + client.getName(), e);
+						client.writeCallbackMessage("Error retrieving your color data.");
+				}
+				return;
 		}
+
 		if (C_Splitted[0].equalsIgnoreCase("!commands") && client.getPass()) {
 			client.writeCallbackMessage("setcolor, setpetcolor, builder, fuzzy, canes, hearts, bluehead, redeem, redeemcreds, viewcolor");
 			return;
@@ -345,40 +350,55 @@ public class PlayerCommandHandler {
 			ToUpdate = client.getSelectedSpinner();
 		}
 		int itemDBID = ToUpdate.getItemDBID();
-		try {
-			PreparedStatement ps = DatabaseTools.getDbConnection().prepareStatement(
-					"UPDATE inventory SET `red1` = ?, `green1` = ?, `blue1` = ?, `red2` = ?, `green2` = ?, `blue2` = ? "
-							+ "WHERE `userid` = (SELECT `UID` from `users` WHERE `username` = ?) AND `id` = ?");
-			ps.setString(1, red);
-			ps.setString(2, green);
-			ps.setString(3, blue);
-			ps.setString(4, red2);
-			ps.setString(5, green2);
-			ps.setString(6, blue2);
-			ps.setString(7, client.getName());
-			ps.setInt(8, itemDBID);
-			if (ps.executeUpdate() == 1) {
-				client.writeCallbackMessage("Color successfully changed.");
-				StickColour newColour = new StickColour(Integer.valueOf(red), Integer.valueOf(green),
-						Integer.valueOf(blue), Integer.valueOf(red2), Integer.valueOf(green2), Integer.valueOf(blue2));
-				ToUpdate.setColour(newColour);
-				if (!Pet) {
-					client.setColour(newColour);
-					PreparedStatement ps2 = DatabaseTools.getDbConnection()
-							.prepareStatement("UPDATE `users` SET `red` = ?, `green` = ?, `blue` = ? WHERE `UID` = ?");
-					ps2.setInt(1, Integer.valueOf(red));
-					ps2.setInt(2, Integer.valueOf(green));
-					ps2.setInt(3, Integer.valueOf(blue));
-					ps2.setInt(4, client.getDbID());
-					ps2.executeUpdate();
-				}
-				updatePlayer(client);
-			} else {
-				LOGGER.warn("Updating color failed.");
-			}
-		} catch (SQLException e) {
-			LOGGER.warn("Exception changing colour of user " + client.getName() + ". Exception thrown: ", e);
-		}
+try {
+    Connection conn = DatabaseTools.getDbConnection();
+
+    PreparedStatement ps = conn.prepareStatement(
+        "UPDATE inventory SET `red1` = ?, `green1` = ?, `blue1` = ?, `red2` = ?, `green2` = ?, `blue2` = ? " +
+        "WHERE `userid` = (SELECT `UID` from `users` WHERE `username` = ?) AND `id` = ?"
+    );
+    ps.setString(1, red);
+    ps.setString(2, green);
+    ps.setString(3, blue);
+    ps.setString(4, red2);
+    ps.setString(5, green2);
+    ps.setString(6, blue2);
+    ps.setString(7, client.getName());
+    ps.setInt(8, itemDBID);
+
+    if (ps.executeUpdate() == 1) {
+        client.writeCallbackMessage("Color successfully changed.");
+
+        StickColour newColour = new StickColour(
+            Integer.valueOf(red),
+            Integer.valueOf(green),
+            Integer.valueOf(blue),
+            Integer.valueOf(red2),
+            Integer.valueOf(green2),
+            Integer.valueOf(blue2)
+        );
+        ToUpdate.setColour(newColour);
+
+        if (!Pet) {
+            client.setColour(newColour);
+            PreparedStatement ps2 = conn.prepareStatement(
+                "UPDATE `users` SET `red` = ?, `green` = ?, `blue` = ? WHERE `UID` = ?"
+            );
+            ps2.setInt(1, Integer.valueOf(red));
+            ps2.setInt(2, Integer.valueOf(green));
+            ps2.setInt(3, Integer.valueOf(blue));
+            ps2.setInt(4, client.getDbID());
+            ps2.executeUpdate();
+        }
+
+        updatePlayer(client);
+    } else {
+        LOGGER.warn("Updating color failed.");
+    }
+} catch (SQLException e) {
+    LOGGER.warn("Exception changing colour of user " + client.getName() + ". Exception thrown: ", e);
+}
+
 
 	}
 
@@ -516,41 +536,47 @@ public class PlayerCommandHandler {
 		String green2 = colour[4];
 		String blue2 = colour[5];
 
-		try {
-			PreparedStatement ps = DatabaseTools.getDbConnection().prepareStatement(
-					"INSERT INTO `inventory` (`userid`, `itemid`, `itemtype`, `red1`, `green1`, `blue1`, "
-							+ "`red2`, `green2`, `blue2`) VALUES (?, ?, 1, ?, ?, ?, ?, ?, ?)");
-			ps.setInt(1, client.getDbID());
-			ps.setInt(2, itemID);
-			ps.setString(3, red);
-			ps.setString(4, green);
-			ps.setString(5, blue);
-			ps.setString(6, red2);
-			ps.setString(7, green2);
-			ps.setString(8, blue2);
+try {
+    Connection conn = DatabaseTools.getDbConnection();
 
-			int newDBID = ps.executeUpdate();
-			if (newDBID > 0) {
-				PreparedStatement ps3 = DatabaseTools.getDbConnection().prepareStatement(
-						"SELECT MAX(id) AS `max` FROM `inventory` WHERE `userid` = ? AND `itemtype` = ?");
-				ps3.setInt(1, client.getDbID());
-				ps3.setInt(2, 1);
-				ResultSet result = ps3.executeQuery();
-				if (result.next()) {
-					newDBID = result.getInt("max");
-				}
-				client.writeCallbackMessage("Item successfully added. Check your profile tab!");
-				StickColour newcol = new StickColour();
-				newcol.setColour1FromString(red + green + blue);
-				newcol.setColour2FromString(red2 + green2 + blue2);
-				client.addItemToInventory(newDBID, new StickItem(itemID, newDBID, client.getDbID(), 1, false, newcol));
-				client.write(StickPacketMaker.getInventoryPacket(client.getFormattedInventoryData()));
-			} else {
-				client.writeCallbackMessage("Updating color failed.");
-			}
-		} catch (SQLException e) {
-			LOGGER.warn("Exception changing colour of user " + client.getName() + ". Exception thrown: ", e);
-		}
+    PreparedStatement ps = conn.prepareStatement(
+        "INSERT INTO `inventory` (`userid`, `itemid`, `itemtype`, `red1`, `green1`, `blue1`, " +
+        "`red2`, `green2`, `blue2`) VALUES (?, ?, 1, ?, ?, ?, ?, ?, ?)"
+    );
+    ps.setInt(1, client.getDbID());
+    ps.setInt(2, itemID);
+    ps.setString(3, red);
+    ps.setString(4, green);
+    ps.setString(5, blue);
+    ps.setString(6, red2);
+    ps.setString(7, green2);
+    ps.setString(8, blue2);
+
+    int newDBID = ps.executeUpdate();
+    if (newDBID > 0) {
+        PreparedStatement ps3 = conn.prepareStatement(
+            "SELECT MAX(id) AS `max` FROM `inventory` WHERE `userid` = ? AND `itemtype` = ?"
+        );
+        ps3.setInt(1, client.getDbID());
+        ps3.setInt(2, 1);
+        ResultSet result = ps3.executeQuery();
+        if (result.next()) {
+            newDBID = result.getInt("max");
+        }
+
+        client.writeCallbackMessage("Item successfully added. Check your profile tab!");
+        StickColour newcol = new StickColour();
+        newcol.setColour1FromString(red + green + blue);
+        newcol.setColour2FromString(red2 + green2 + blue2);
+        client.addItemToInventory(newDBID, new StickItem(itemID, newDBID, client.getDbID(), 1, false, newcol));
+        client.write(StickPacketMaker.getInventoryPacket(client.getFormattedInventoryData()));
+    } else {
+        client.writeCallbackMessage("Updating color failed.");
+    }
+} catch (SQLException e) {
+    LOGGER.warn("Exception changing colour of user " + client.getName() + ". Exception thrown: ", e);
+}
+
 	}
 
 	private static Boolean verifyColourInput(StickClient client, String[] colour) {
@@ -615,15 +641,18 @@ public class PlayerCommandHandler {
 		}
 
 		try {
-			PreparedStatement ps = DatabaseTools.getDbConnection()
-					.prepareStatement("UPDATE users SET `kills` = ? WHERE `UID` = ?");
-			ps.setInt(1, new_kills);
-			ps.setInt(2, client.getDbID());
-			ps.executeUpdate();
+				Connection conn = DatabaseTools.getDbConnection();
+				PreparedStatement ps = conn.prepareStatement(
+						"UPDATE users SET `kills` = ? WHERE `UID` = ?"
+				);
+				ps.setInt(1, new_kills);
+				ps.setInt(2, client.getDbID());
+				ps.executeUpdate();
 		} catch (SQLException e) {
-			LOGGER.warn("Error setting kills; something went wrong with the DB query.");
-			return;
+				LOGGER.warn("Error setting kills; something went wrong with the DB query.");
+				return;
 		}
+
 
 		client.setKills(new_kills);
 

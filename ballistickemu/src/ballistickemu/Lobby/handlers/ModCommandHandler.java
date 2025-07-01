@@ -18,6 +18,7 @@
  *     the Free Software Foundation, Inc., 59 Temple Place,
  */
 package ballistickemu.Lobby.handlers;
+import java.sql.Connection;
 
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -62,18 +63,19 @@ public class ModCommandHandler {
 				client.writeMessage("Usage: ::ban username minutes reason");
 			}
 		} else if (ModCommandParsed[0].equalsIgnoreCase("::unban")) {
-			PreparedStatement ps;
-			DatabaseTools.lock.lock();
-			try {
-				ps = DatabaseTools.getDbConnection().prepareStatement("UPDATE `users` SET ban=0 WHERE `username` = ?");
+    DatabaseTools.lock.lock();
+		try (Connection conn = DatabaseTools.getDbConnection();
+				PreparedStatement ps = conn.prepareStatement("UPDATE `users` SET ban=0 WHERE `username` = ?")) {
 				ps.setString(1, ModCommandParsed[1]);
 				ps.executeUpdate();
-			} catch (SQLException e) {
+		} catch (SQLException e) {
 				LOGGER.warn("Exception whilst removing ban: ", e);
-			} finally {
+		} finally {
 				DatabaseTools.lock.unlock();
-			}
-		} else if (ModCommandParsed[0].equalsIgnoreCase("::mute")) {
+		}
+
+	}
+ else if (ModCommandParsed[0].equalsIgnoreCase("::mute")) {
 			if (ModCommandParsed.length == 2) {
 				StickClient SC = Main.getLobbyServer().getClientRegistry().getClientfromName(ModCommandParsed[1]);
 				if (SC != null) {
@@ -140,18 +142,18 @@ public class ModCommandHandler {
 				client.writeMessage("Usage: ::ipban username minutes");
 			}
 		} else if (ModCommandParsed[0].equalsIgnoreCase("::ipunban")) {
-			PreparedStatement ps;
-			DatabaseTools.lock.lock();
-			try {
-				ps = DatabaseTools.getDbConnection().prepareStatement("DELETE FROM `ipbans` WHERE `playername` = ?");
-				ps.setString(1, ModCommandParsed[1]);
-				ps.executeUpdate();
-			} catch (SQLException e) {
-				LOGGER.warn("Exception whilst removing IP ban: ", e);
-			} finally {
-				DatabaseTools.lock.unlock();
-			}
-		} else if (ModCommandParsed[0].equalsIgnoreCase("::announce")) {
+    DatabaseTools.lock.lock();
+    try (Connection conn = DatabaseTools.getDbConnection();
+         PreparedStatement ps = conn.prepareStatement("DELETE FROM `ipbans` WHERE `playername` = ?")) {
+        ps.setString(1, ModCommandParsed[1]);
+        ps.executeUpdate();
+    } catch (SQLException e) {
+        LOGGER.warn("Exception whilst removing IP ban: ", e);
+    } finally {
+        DatabaseTools.lock.unlock();
+    }
+}
+ else if (ModCommandParsed[0].equalsIgnoreCase("::announce")) {
 			if (ModCommand.length() > 10)
 				Main.getLobbyServer().BroadcastAnnouncement(ModCommand.substring(11).replaceAll("\0", ""));
 		}
@@ -232,51 +234,53 @@ public class ModCommandHandler {
 				client.writeCallbackMessage("Unblended!");
 			}
 		} else if (ModCommandParsed[0].equalsIgnoreCase("::lastlogin")) {
-			if (ModCommandParsed.length == 2) {
-				try {
-					PreparedStatement ps = DatabaseTools.getDbConnection()
-							.prepareStatement("SELECT lastlogindate FROM `users` WHERE `username` = ?");
-					ps.setString(1, ModCommandParsed[1]);
-					ResultSet rs = ps.executeQuery();
-					if (rs.next()) {
-						client.writeCallbackMessage("User " + ModCommandParsed[1] + " last logged in "
-								+ new SimpleDateFormat().format(rs.getBigDecimal("lastlogindate")));
-					} else {
-						client.writeCallbackMessage("User " + ModCommandParsed[1] + " not found.");
-					}
+		if (ModCommandParsed.length == 2) {
+				try (Connection conn = DatabaseTools.getDbConnection();
+						PreparedStatement ps = conn.prepareStatement(
+								"SELECT lastlogindate FROM `users` WHERE `username` = ?")) {
+						ps.setString(1, ModCommandParsed[1]);
+						try (ResultSet rs = ps.executeQuery()) {
+								if (rs.next()) {
+										client.writeCallbackMessage("User " + ModCommandParsed[1] + " last logged in "
+														+ new SimpleDateFormat().format(rs.getBigDecimal("lastlogindate")));
+								} else {
+										client.writeCallbackMessage("User " + ModCommandParsed[1] + " not found.");
+								}
+						}
 				} catch (SQLException e) {
-					LOGGER.warn("Failed to retrieve last login date of player " + ModCommandParsed[1]);
+						LOGGER.warn("Failed to retrieve last login date of player " + ModCommandParsed[1]);
 				}
-			} else {
-				client.writeCallbackMessage("Usage: ::lastlogin username");
-			}
-		} else if (ModCommandParsed[0].equalsIgnoreCase("::banrecord")) {
-			if (ModCommandParsed.length == 2) {
-				try {
-					PreparedStatement ps = DatabaseTools.getDbConnection()
-							.prepareStatement("SELECT * FROM `bans` WHERE `playername` = ? ORDER BY id DESC");
-					ps.setString(1, ModCommandParsed[1]);
-					ResultSet rs = ps.executeQuery();
-					boolean hasBanrecords = false;
-					client.writeCallbackMessage("Banrecord for " + ModCommandParsed[1]);
-					while (rs.next()) {
-						hasBanrecords = true;
-						String record = new SimpleDateFormat().format(rs.getBigDecimal("issuedate")) + " banned by "
-								+ rs.getString("mod_responsible") + " for " + rs.getString("reason") + " for "
-								+ getDurationBreakdown(rs.getLong("enddate") - rs.getLong("issuedate"));
-						client.writeCallbackMessage(record);
-					}
-					if (!hasBanrecords)
-						client.writeCallbackMessage("User " + ModCommandParsed[1] + " has no ban record.");
-
-				} catch (SQLException e) {
-					LOGGER.warn("Failed to retrieve ban record for player " + ModCommandParsed[1]);
-				}
-			} else {
-				client.writeCallbackMessage("Usage: ::banrecord username");
-			}
-
-		} else if (ModCommandParsed[0].equalsIgnoreCase("::spy")) {
+		} else {
+        client.writeCallbackMessage("Usage: ::lastlogin username");
+    }
+} else if (ModCommandParsed[0].equalsIgnoreCase("::banrecord")) {
+    if (ModCommandParsed.length == 2) {
+        try (Connection conn = DatabaseTools.getDbConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                     "SELECT * FROM `bans` WHERE `playername` = ? ORDER BY id DESC")) {
+            ps.setString(1, ModCommandParsed[1]);
+            try (ResultSet rs = ps.executeQuery()) {
+                boolean hasBanrecords = false;
+                client.writeCallbackMessage("Banrecord for " + ModCommandParsed[1]);
+                while (rs.next()) {
+                    hasBanrecords = true;
+                    String record = new SimpleDateFormat().format(rs.getBigDecimal("issuedate")) + " banned by "
+                            + rs.getString("mod_responsible") + " for " + rs.getString("reason") + " for "
+                            + getDurationBreakdown(rs.getLong("enddate") - rs.getLong("issuedate"));
+                    client.writeCallbackMessage(record);
+                }
+                if (!hasBanrecords) {
+                    client.writeCallbackMessage("User " + ModCommandParsed[1] + " has no ban record.");
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.warn("Failed to retrieve ban record for player " + ModCommandParsed[1], e);
+        }
+    } else {
+        client.writeCallbackMessage("Usage: ::banrecord username");
+    }
+}
+ else if (ModCommandParsed[0].equalsIgnoreCase("::spy")) {
 			if (ModCommandParsed.length == 2) {
 				if (ModCommandParsed[1].equalsIgnoreCase("on")) {
 					StickClientRegistry.getSpyList().add(client.getName());
@@ -303,84 +307,96 @@ public class ModCommandHandler {
 		long endDate = timeMinutes != null ? System.currentTimeMillis() + (Long.valueOf(timeMinutes) * 60 * 1000)
 				: Long.MAX_VALUE;
 		StickClient SC = Main.getLobbyServer().getClientRegistry().getClientfromName(playerName);
-		if (playerban) {
-			if (SC != null)
-				SC.getBanned(Integer.valueOf(timeMinutes), reason);
-			DatabaseTools.lock.lock();
-			try {
-				PreparedStatement ps = DatabaseTools.getDbConnection()
-						.prepareStatement("UPDATE `users` set `ban` = '1' where `username` = ?");
-				ps.setString(1, playerName);
-				banResult = ps.executeUpdate();
+if (playerban) {
+	if (SC != null)
+		SC.getBanned(Integer.valueOf(timeMinutes), reason);
 
-				if (banResult == -1) {
-					client.writeCallbackMessage("There was an error banning " + playerName + ".");
-					return banResult;
-				} else if (banResult == 0) {
-					client.writeCallbackMessage("User " + playerName + " does not exist.");
-					return banResult;
-				} else if (banResult >= 1) {
-					client.writeCallbackMessage("User " + playerName + " was banned successfully.");
-				}
-				PreparedStatement ps4 = DatabaseTools.getDbConnection()
-						.prepareStatement("SELECT UID FROM `users` WHERE `username` = ?");
-				ps4.setString(1, playerName);
-				ResultSet rs4 = ps4.executeQuery();
-				rs4.next();
-				PreparedStatement ps2 = DatabaseTools.getDbConnection().prepareStatement(
-						"INSERT INTO `bans` (userid, playername, mod_responsible, issuedate, enddate, reason) VALUES (?, ?, ?, ?, ?, ?)");
-				ps2.setInt(1, rs4.getInt("UID"));
-				ps2.setString(2, playerName);
+	DatabaseTools.lock.lock();
+	try (Connection conn = DatabaseTools.getDbConnection();
+		 PreparedStatement ps = conn.prepareStatement("UPDATE `users` SET `ban` = '1' WHERE `username` = ?")) {
+		
+		ps.setString(1, playerName);
+		banResult = ps.executeUpdate();
 
-				ps2.setString(3, client.getName());
-				ps2.setLong(4, System.currentTimeMillis());
-				ps2.setLong(5, endDate);
-				ps2.setString(6, reason);
-				ps2.executeUpdate();
-			} catch (SQLException e) {
-				LOGGER.warn("Exception during ban command: ", e);
-			} finally {
-				DatabaseTools.lock.unlock();
-			}
+		if (banResult == -1) {
+			client.writeCallbackMessage("There was an error banning " + playerName + ".");
+			return banResult;
+		} else if (banResult == 0) {
+			client.writeCallbackMessage("User " + playerName + " does not exist.");
+			return banResult;
+		} else if (banResult >= 1) {
+			client.writeCallbackMessage("User " + playerName + " was banned successfully.");
 		}
-		if (ipban) {
-			try {
-				String IP = "";
-				if (SC != null) {
-					IP = SC.getIoSession().getRemoteAddress().toString().substring(1).split(":")[0];
-				} else {
-					PreparedStatement ps4 = DatabaseTools.getDbConnection()
-							.prepareStatement("SELECT ip FROM `users` WHERE `username` = ?");
-					ps4.setString(1, playerName);
-					ResultSet rs4 = ps4.executeQuery();
-					rs4.next();
-					IP = rs4.getString("ip");
-				}
-				if (IP == null || IP.isEmpty()) {
-					LOGGER.info("No IP for User " + playerName + " could be found.");
-					return -1;
-				}
-				PreparedStatement ps5 = DatabaseTools.getDbConnection().prepareStatement(
-						"INSERT INTO `ipbans` (`ip`, `playername`, `mod_responsible`, `issuedate`, `enddate`) VALUES (?, ?, ?, ?, ?)");
-				ps5.setString(1, IP);
-				ps5.setString(2, playerName);
-				ps5.setString(3, client.getName());
-				ps5.setLong(4, System.currentTimeMillis());
-				ps5.setLong(5, endDate);
-				ps5.executeUpdate();
-				for (StickClient c : Main.getLobbyServer().getClientRegistry().getAllClients()) {
-					if (c.getIoSession().getRemoteAddress().toString().substring(1).split(":")[0].equals(IP)) {
-						if (playerban) {
-							c.getBanned(Integer.valueOf(timeMinutes), reason);
-						} else {
-							c.getIoSession().close(false);
-						}
+
+		try (PreparedStatement ps4 = conn.prepareStatement("SELECT UID FROM `users` WHERE `username` = ?")) {
+			ps4.setString(1, playerName);
+			try (ResultSet rs4 = ps4.executeQuery()) {
+				if (rs4.next()) {
+					try (PreparedStatement ps2 = conn.prepareStatement(
+							"INSERT INTO `bans` (userid, playername, mod_responsible, issuedate, enddate, reason) VALUES (?, ?, ?, ?, ?, ?)")) {
+						ps2.setInt(1, rs4.getInt("UID"));
+						ps2.setString(2, playerName);
+						ps2.setString(3, client.getName());
+						ps2.setLong(4, System.currentTimeMillis());
+						ps2.setLong(5, endDate);
+						ps2.setString(6, reason);
+						ps2.executeUpdate();
 					}
 				}
-			} catch (SQLException e) {
-				LOGGER.warn("Exception during ban command: ", e);
 			}
 		}
+	} catch (SQLException e) {
+		LOGGER.warn("Exception during ban command: ", e);
+	} finally {
+		DatabaseTools.lock.unlock();
+	}
+}
+
+
+if (ipban) {
+    Connection conn = null;
+    try {
+        conn = DatabaseTools.getDbConnection();
+        String IP = "";
+        if (SC != null) {
+            IP = SC.getIoSession().getRemoteAddress().toString().substring(1).split(":")[0];
+        } else {
+            PreparedStatement ps4 = conn.prepareStatement("SELECT ip FROM `users` WHERE `username` = ?");
+            ps4.setString(1, playerName);
+            ResultSet rs4 = ps4.executeQuery();
+            if (rs4.next()) {
+                IP = rs4.getString("ip");
+            }
+        }
+
+        if (IP == null || IP.isEmpty()) {
+            LOGGER.info("No IP for User " + playerName + " could be found.");
+            return -1;
+        }
+
+        PreparedStatement ps5 = conn.prepareStatement(
+            "INSERT INTO `ipbans` (`ip`, `playername`, `mod_responsible`, `issuedate`, `enddate`) VALUES (?, ?, ?, ?, ?)");
+        ps5.setString(1, IP);
+        ps5.setString(2, playerName);
+        ps5.setString(3, client.getName());
+        ps5.setLong(4, System.currentTimeMillis());
+        ps5.setLong(5, endDate);
+        ps5.executeUpdate();
+
+        for (StickClient c : Main.getLobbyServer().getClientRegistry().getAllClients()) {
+            if (c.getIoSession().getRemoteAddress().toString().substring(1).split(":")[0].equals(IP)) {
+                if (playerban) {
+                    c.getBanned(Integer.valueOf(timeMinutes), reason);
+                } else {
+                    c.getIoSession().close(false);
+                }
+            }
+        }
+    } catch (SQLException e) {
+        LOGGER.warn("Exception during ban command: ", e);
+    }
+}
+
 		return banResult;
 	}
 

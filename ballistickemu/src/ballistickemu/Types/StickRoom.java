@@ -18,6 +18,7 @@
  *     the Free Software Foundation, Inc., 59 Temple Place,
  */
 package ballistickemu.Types;
+import java.sql.Connection;
 
 import java.util.Random;
 import java.sql.PreparedStatement;
@@ -297,51 +298,52 @@ class OnTimedEvent implements Runnable {
 
 	private Random random = new Random();
 
-private void awardRandomPrize() {
-    CR.ClientsLock.readLock().lock();
-    try {
-        for (StickClient client : CR.getAllClients()) {
-            if (client.getGameKills() >= 3) {
-                int roll = random.nextInt(50) + 1; // Rolls between 1 and 50
-                LOGGER.info("Player '{}' rolled: {}", client.getName(), roll);
+		private void awardRandomPrize() {
+				CR.ClientsLock.readLock().lock();
+				try {
+						for (StickClient client : CR.getAllClients()) {
+								if (client.getGameKills() >= 3) {
+										int roll = random.nextInt(50) + 1; // Rolls between 1 and 50
+										LOGGER.info("Player '{}' rolled: {}", client.getName(), roll);
 
-                if (roll == 1) { // 1/50 chance
-                    LOGGER.info("Awarding random prize to '{}'", client.getName());
-                    givePrize(client);
-                }
-            }
-        }
-    } finally {
-        CR.ClientsLock.readLock().unlock();
-    }
-}
+										if (roll == 1) { // 1/50 chance
+												LOGGER.info("Awarding random prize to '{}'", client.getName());
+												givePrize(client);
+										}
+								}
+						}
+				} finally {
+						CR.ClientsLock.readLock().unlock();
+				}
+		}
 
-private void givePrize(StickClient luckyClient) {
-    if (luckyClient == null) return;
+		private void givePrize(StickClient luckyClient) {
+				if (luckyClient == null) return;
 
-    try {
-        PreparedStatement ps = DatabaseTools.getDbConnection()
-          	.prepareStatement("UPDATE users SET redeemable = redeemable + 1 WHERE UID = ?");
-        ps.setInt(1, luckyClient.getDbID());
-        int updatedRows = ps.executeUpdate();
-        if (updatedRows > 0) {
-            LOGGER.info("Prize awarded to user: " + luckyClient.getName());
-            luckyClient.writeCallbackMessage("You have won a rare prize! Speak to a moderator to claim it");
-            Main.getLobbyServer().BroadcastAnnouncement2(luckyClient.getName() + " has won a rare prize!");
-        } else {
-            LOGGER.info("Failed to update redeemable count for user: " + luckyClient.getName());
-        }
-    } catch (SQLException e) {
-        LOGGER.info("SQL Exception when trying to award prize: ", e);
-    }
-}
+				try (Connection conn = DatabaseTools.getDbConnection();
+						PreparedStatement ps = conn.prepareStatement(
+								"UPDATE users SET redeemable = redeemable + 1 WHERE UID = ?")) {
 
+						ps.setInt(1, luckyClient.getDbID());
+						int updatedRows = ps.executeUpdate();
+						if (updatedRows > 0) {
+								LOGGER.info("Prize awarded to user: " + luckyClient.getName());
+								luckyClient.writeCallbackMessage("You have won a rare prize! Speak to a moderator to claim it");
+								Main.getLobbyServer().BroadcastAnnouncement2(luckyClient.getName() + " has won a rare prize!");
+						} else {
+								LOGGER.info("Failed to update redeemable count for user: " + luckyClient.getName());
+						}
+
+				} catch (SQLException e) {
+						LOGGER.info("SQL Exception when trying to award prize: ", e);
+				}
+		}
 
 		private void updateJoinedClients() {
-			try {
+			try (Connection conn = DatabaseTools.getDbConnection()) {
 				for (String s : totalJoinedClients) {
-					PreparedStatement ps = DatabaseTools.getDbConnection()
-							.prepareStatement("UPDATE `users` SET `rounds` = `rounds` + 1 WHERE `username` = ?");
+					PreparedStatement ps = conn.prepareStatement(
+							"UPDATE `users` SET `rounds` = `rounds` + 1 WHERE `username` = ?");
 					ps.setString(1, s);
 					ps.executeUpdate();
 					StickClient c = Main.getLobbyServer().getClientRegistry().getClientfromName(s);
@@ -353,7 +355,6 @@ private void givePrize(StickClient luckyClient) {
 			} catch (SQLException e) {
 				LOGGER.warn("Problem updating user rounds stat.");
 			}
-
 		}
 
 		private StickClient getWinner() {
@@ -388,95 +389,89 @@ private void givePrize(StickClient luckyClient) {
 			return tempWinner;
 		}
 
-		private void updateStats(StickClient winner) {
-			LOGGER.info("Updating stats for room '{}'", Name);
-			CR.ClientsLock.readLock().lock();
+private void updateStats(StickClient winner) {
+	LOGGER.info("Updating stats for room '{}'", Name);
+	CR.ClientsLock.readLock().lock();
+	try (Connection conn = DatabaseTools.getDbConnection()) {
+		List<StickClient> winners = new ArrayList<>();
+		List<StickClient> realWinners = winners;
+
+		for (StickClient c : CR.getAllClients()) {
 			try {
-				List<StickClient> winners = new ArrayList<StickClient>();
-				List<StickClient> realWinners = winners;
-				for (StickClient c : CR.getAllClients()) {
-					try {
-						if (!c.getQuickplayStatus() && (c.getDbID() != -1)) {
-							if (c.equals(winner)) {
-								winners.add(winner);
-								// win = 1;
-							} else {
-								// if somebody is loser but has same kills with equal or lesser deaths make them
-								// winner too
-								if (c.getGameKills() >= winner.getGameKills()
-										&& c.getGameDeaths() <= winner.getGameDeaths()) {
-									winners.add(c);
-									// win = 1;
-								}
-							}
+				if (!c.getQuickplayStatus() && (c.getDbID() != -1)) {
+					if (c.equals(winner)) {
+						winners.add(winner);
+					} else {
+						if (c.getGameKills() >= winner.getGameKills() &&
+							c.getGameDeaths() <= winner.getGameDeaths()) {
+							winners.add(c);
 						}
-
-					} catch (Exception e) {
-						LOGGER.warn("There was an error updating winner status for user " + c.getName());
 					}
 				}
-
-				Set<StickClient> toRemove = new HashSet<>();
-				for (StickClient w : winners) {
-					try {
-						for (StickClient x : winners) {
-							if (w.getGameDeaths() > x.getGameDeaths()) {
-								if (realWinners.contains(w)) {
-	  								toRemove.add(w);
-                							break;
-								}
-							}
-						}
-					} catch (Exception e) {
-        					LOGGER.warn("Error during comparison in updateStats for user: {}", w.getName(), e);
-					}
-				}
-				realWinners.removeAll(toRemove);
-
-				for (StickClient c : CR.getAllClients()) {
-					try {
-						int win = 0;
-						int loss = 0;
-						if (realWinners.contains(c)) {
-							win = 1;
-						} else {
-							loss = 1;
-						}
-						int killCap = Math.min(c.getGameKills(), 40);
-
-						PreparedStatement ps = DatabaseTools.getDbConnection()
-								.prepareStatement("UPDATE `users` SET `kills` = `kills` + ?, `deaths` = `deaths` + ?, "
-										+ "`wins` = `wins` + ?, `losses` = `losses` + ? WHERE `UID` = ?");
-						ps.setInt(1, killCap);
-						ps.setInt(2, c.getGameDeaths());
-						ps.setInt(3, win);
-						ps.setInt(4, loss);
-						ps.setInt(5, c.getDbID());
-						ps.executeUpdate();
-
-						LOGGER.info("Updated stats for user: " + c.getName());
-
-					} catch (Exception e) {
-						LOGGER.warn("There was an error updating round stats for user {} {}", c.getName(), e);
-					}
-				}
-				updateJoinedClients();
-				totalJoinedClients.clear();
-				for (StickClient c : CR.getAllClients()) {
-					try {
-						totalJoinedClients.add(c.getName());
-						c.setGameKills(0);
-						c.setGameDeaths(0);
-					} catch (Exception e) {
-						LOGGER.warn("There was an error resetting everybodys game stats");
-					}
-				}
-
-			} finally {
-				LOGGER.info("Total clients processed in updateStats: {}", CR.getAllClients().size());
-				CR.ClientsLock.readLock().unlock();
+			} catch (Exception e) {
+				LOGGER.warn("There was an error updating winner status for user " + c.getName());
 			}
 		}
+
+		Set<StickClient> toRemove = new HashSet<>();
+		for (StickClient w : winners) {
+			try {
+				for (StickClient x : winners) {
+					if (w.getGameDeaths() > x.getGameDeaths()) {
+						if (realWinners.contains(w)) {
+							toRemove.add(w);
+							break;
+						}
+					}
+				}
+			} catch (Exception e) {
+				LOGGER.warn("Error during comparison in updateStats for user: {}", w.getName(), e);
+			}
+		}
+		realWinners.removeAll(toRemove);
+
+		for (StickClient c : CR.getAllClients()) {
+			try {
+				int win = realWinners.contains(c) ? 1 : 0;
+				int loss = realWinners.contains(c) ? 0 : 1;
+				int killCap = Math.min(c.getGameKills(), 40);
+
+				PreparedStatement ps = conn.prepareStatement(
+					"UPDATE `users` SET `kills` = `kills` + ?, `deaths` = `deaths` + ?, " +
+					"`wins` = `wins` + ?, `losses` = `losses` + ? WHERE `UID` = ?");
+				ps.setInt(1, killCap);
+				ps.setInt(2, c.getGameDeaths());
+				ps.setInt(3, win);
+				ps.setInt(4, loss);
+				ps.setInt(5, c.getDbID());
+				ps.executeUpdate();
+
+				LOGGER.info("Updated stats for user: " + c.getName());
+			} catch (Exception e) {
+				LOGGER.warn("There was an error updating round stats for user {} {}", c.getName(), e);
+			}
+		}
+
+		updateJoinedClients(); // This still uses its own conn, which you've already updated
+		totalJoinedClients.clear();
+
+		for (StickClient c : CR.getAllClients()) {
+			try {
+				totalJoinedClients.add(c.getName());
+				c.setGameKills(0);
+				c.setGameDeaths(0);
+			} catch (Exception e) {
+				LOGGER.warn("There was an error resetting everybodys game stats");
+			}
+		}
+	} catch (Exception outerEx) {
+		LOGGER.warn("Error during updateStats outer block", outerEx);
+	} finally {
+		LOGGER.info("Total clients processed in updateStats: {}", CR.getAllClients().size());
+		CR.ClientsLock.readLock().unlock();
+	}
+}
+
 	}
 
 	public boolean isMarkedForKill()
