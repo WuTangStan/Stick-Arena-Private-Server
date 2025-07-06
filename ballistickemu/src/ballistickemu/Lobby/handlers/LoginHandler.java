@@ -27,13 +27,13 @@ public class LoginHandler {
 		try (Connection conn = DatabaseTools.getDbConnection()) {
 			// IP ban check
 			try (PreparedStatement ps = conn.prepareStatement("SELECT * from `ipbans` where `ip` = ? ORDER BY id DESC LIMIT 1")) {
-				ps.setString(1, client.getIoSession().getRemoteAddress().toString().substring(1).split(":")[0]);
+				ps.setString(1, client.getClientIP());
 				try (ResultSet rs = ps.executeQuery()) {
 					if (rs.next()) {
 						BigDecimal dec = rs.getBigDecimal("enddate");
 						if (dec.longValue() < System.currentTimeMillis()) {
 							try (PreparedStatement ps2 = conn.prepareStatement("DELETE FROM `ipbans` WHERE `ip` = ?")) {
-								ps2.setString(1, client.getIoSession().getRemoteAddress().toString().substring(1).split(":")[0]);
+								ps2.setString(1, client.getClientIP());
 								ps2.execute();
 							}
 						} else {
@@ -216,7 +216,14 @@ public class LoginHandler {
 			colour = client.getSelectedSpinner().getColour().getColour1AsString();
 			String colour2 = client.getSelectedSpinner().getColour().getColour2AsString();
 
-			updateLastLoginDate(conn, dbID, client.getIoSession().getRemoteAddress().toString().substring(1).split(":")[0]);
+			// Update only the login date - IP will be set by StickNetworkHandler when real IP arrives
+			try (PreparedStatement ps1 = conn.prepareStatement("UPDATE `users` SET `lastlogindate` = ? WHERE `UID` = ?")) {
+				ps1.setLong(1, System.currentTimeMillis());
+				ps1.setInt(2, dbID);
+				ps1.executeUpdate();
+			} catch (SQLException e) {
+				LOGGER.warn("Error while update last login date for ID: " + dbID, e);
+			}
 
 			try (PreparedStatement updateOnline = conn.prepareStatement("UPDATE `users` SET `isOnline` = 1 WHERE `UID` = ?")) {
 				updateOnline.setInt(1, dbID);
@@ -230,17 +237,6 @@ public class LoginHandler {
 
 		} catch (SQLException e) {
 			LOGGER.warn("Exception at login", e);
-		}
-	}
-
-	private static void updateLastLoginDate(Connection conn, int dbID, String ip) {
-		try (PreparedStatement ps1 = conn.prepareStatement("UPDATE `users` SET `lastlogindate` = ?, `ip` = ? WHERE `UID` = ?")) {
-			ps1.setLong(1, System.currentTimeMillis());
-			ps1.setString(2, ip);
-			ps1.setInt(3, dbID);
-			ps1.executeUpdate();
-		} catch (SQLException e) {
-			LOGGER.warn("Error while update last login date for ID: " + dbID, e);
 		}
 	}
 }

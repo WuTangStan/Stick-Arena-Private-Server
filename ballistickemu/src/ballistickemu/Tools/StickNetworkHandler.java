@@ -16,6 +16,7 @@ import ballistickemu.Types.StickClient;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 
 public class StickNetworkHandler extends IoHandlerAdapter {
@@ -39,6 +40,7 @@ public class StickNetworkHandler extends IoHandlerAdapter {
 		StickClient newClient = new StickClient(session,
 				UIDTool.GenerateUID(Main.getLobbyServer().getClientRegistry()));
 		session.setAttribute(StickClient.CLIENT_KEY, newClient);
+		LOGGER.info("Created new client with UID: {} for session: {}", newClient.getUID(), session.getRemoteAddress());
 	}
 
 	@Override
@@ -49,7 +51,57 @@ public class StickNetworkHandler extends IoHandlerAdapter {
 	public void messageReceived(IoSession session, Object message) throws Exception {
 		String S = message.toString().trim();
 		StickClient c_Client = (StickClient) session.getAttribute(StickClient.CLIENT_KEY);
+		
+		// Handle special IP message from WebSocket proxy
+		if (S.startsWith("[IP:")) {
+			if (c_Client == null) {
+				LOGGER.warn("Received IP message but client is null, session: {}", session.getRemoteAddress());
+				return;
+			}
+			// Extract IP from [IP:xxx]\n format
+			String realIP = S.substring(4); // Remove "[IP:"
+			int endBracket = realIP.indexOf(']');
+			if (endBracket != -1) {
+				realIP = realIP.substring(0, endBracket); // Remove "]"
+			}
+			c_Client.setRealClientIP(realIP);
+			LOGGER.info("Real client IP set to: {} for client: {}", realIP, c_Client.getUID());
+			
+			// If client is already logged in, update the database with the correct IP
+			if (c_Client.getDbID() > 0 && c_Client.getName() != null) {
+				try (Connection conn = DatabaseTools.getDbConnection()) {
+					// Get current IP from database
+					String currentDbIP = null;
+					try (PreparedStatement psCheck = conn.prepareStatement("SELECT ip FROM `users` WHERE `UID` = ?")) {
+						psCheck.setInt(1, c_Client.getDbID());
+						try (ResultSet rs = psCheck.executeQuery()) {
+							if (rs.next()) {
+								currentDbIP = rs.getString("ip");
+							}
+						}
+					}
+					
+					// Update IP
+					try (PreparedStatement ps = conn.prepareStatement("UPDATE `users` SET `ip` = ? WHERE `UID` = ?")) {
+						ps.setString(1, realIP);
+						ps.setInt(2, c_Client.getDbID());
+						ps.executeUpdate();
+						
+						if (currentDbIP != null && !currentDbIP.equals(realIP)) {
+							LOGGER.info("Updated database IP for user " + c_Client.getName() + " (UID: " + c_Client.getDbID() + ") from " + currentDbIP + " to " + realIP);
+						} else {
+							LOGGER.info("Set database IP for user " + c_Client.getName() + " (UID: " + c_Client.getDbID() + ") to " + realIP);
+						}
+					}
+				} catch (SQLException e) {
+					LOGGER.warn("Error updating database IP for user: " + c_Client.getName(), e);
+				}
+			}
+			return;
+		}
+		
 		if (c_Client == null) {
+			LOGGER.warn("Received message but client is null: {}", S);
 			return;
 		}
 

@@ -359,7 +359,7 @@ if (ipban) {
         conn = DatabaseTools.getDbConnection();
         String IP = "";
         if (SC != null) {
-            IP = SC.getIoSession().getRemoteAddress().toString().substring(1).split(":")[0];
+            IP = SC.getClientIP();
         } else {
             PreparedStatement ps4 = conn.prepareStatement("SELECT ip FROM `users` WHERE `username` = ?");
             ps4.setString(1, playerName);
@@ -384,7 +384,7 @@ if (ipban) {
         ps5.executeUpdate();
 
         for (StickClient c : Main.getLobbyServer().getClientRegistry().getAllClients()) {
-            if (c.getIoSession().getRemoteAddress().toString().substring(1).split(":")[0].equals(IP)) {
+            if (c.getClientIP().equals(IP)) {
                 if (playerban) {
                     c.getBanned(Integer.valueOf(timeMinutes), reason);
                 } else {

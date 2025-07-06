@@ -75,14 +75,20 @@ const wss = new WebSocket.Server({
 console.log(`Server started on port ${WS_PORT}`);
 
 wss.on('connection', (ws, req) => {
-    console.log('New WebSocket connection from:', req.socket.remoteAddress);
-    
+    const realIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    console.log('New WebSocket connection from:', realIp);
+
     // Create TCP connection to Java server
     const tcp = net.createConnection({ 
         host: TCP_HOST, 
         port: TCP_PORT 
     }, () => {
         console.log('Connected to Java server');
+
+        setTimeout(() => {
+            console.log('Sending IP message to Java server:', realIp);
+            tcp.write(`[IP:${realIp}]\n`);
+        }, 500);
     });
 
     // Handle WebSocket messages
@@ -99,7 +105,7 @@ wss.on('connection', (ws, req) => {
     tcp.on('data', (data) => {
         if (ws.readyState === WebSocket.OPEN) {
             console.log('TCP -> WS:', data.length, 'bytes');
-            console.log('Content:', data.toString('utf8')); // 👈 add this
+            console.log('Content:', data.toString('utf8'));
             ws.send(data);
         } else {
             console.log('WebSocket not open, state:', ws.readyState);

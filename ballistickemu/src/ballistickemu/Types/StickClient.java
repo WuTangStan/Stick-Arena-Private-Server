@@ -70,6 +70,7 @@ public class StickClient {
 	private boolean IsRequiresUpdate;
 	private int redeemable;
 	private boolean receivingPolicy=false;
+	private String realClientIP;
 	private LinkedHashMap<Integer, StickItem> Inventory;
 	public ReentrantReadWriteLock InventoryLock = new ReentrantReadWriteLock(true);
 
@@ -657,5 +658,29 @@ private void setSelectedInDB(StickItem toChange) {
 			} catch (SQLException e) {
 					LOGGER.warn("Exception updating redeemable value for user " + this.getUID() + ". Exception thrown: ", e);
 			}
+	}
+
+	public void setRealClientIP(String ip) {
+		this.realClientIP = ip;
+	}
+
+	public String getRealClientIP() {
+		return this.realClientIP;
+	}
+
+	/**
+	 * Get the client's IP address. Returns the real client IP if set (from WebSocket proxy),
+	 * otherwise returns the session's remote address.
+	 * @return The client's IP address
+	 */
+	public String getClientIP() {
+		if (this.realClientIP != null && !this.realClientIP.isEmpty()) {
+			return this.realClientIP;
+		}
+		// Fallback to session remote address
+		if (this.session != null && this.session.getRemoteAddress() != null) {
+			return this.session.getRemoteAddress().toString().substring(1).split(":")[0];
+		}
+		return null;
 	}
 }

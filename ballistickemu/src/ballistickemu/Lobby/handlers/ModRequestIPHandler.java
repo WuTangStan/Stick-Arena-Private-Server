@@ -22,7 +22,7 @@ public class ModRequestIPHandler {
 		if (Main.isChatLogEnabled()) {
 			LOGGER.info("Player {} issued command /ip {}", client.getName(), clientForIP.getName());
 		}
-		String ip = clientForIP.getIoSession().getRemoteAddress().toString().substring(1).split(":")[0];
+		String ip = clientForIP.getClientIP();
 		StickPacket ipreturn = new StickPacket();
 		ipreturn.Append("07");
 		ipreturn.Append(ip);

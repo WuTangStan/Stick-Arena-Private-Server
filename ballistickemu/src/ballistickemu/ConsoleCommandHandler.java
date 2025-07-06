@@ -242,7 +242,7 @@ public class ConsoleCommandHandler {
 				}
 
 			} else {
-				String ip = clientForIP.getIoSession().getRemoteAddress().toString().substring(1).split(":")[0];
+				String ip = clientForIP.getClientIP();
 				LOGGER.info("IP Adress for " + args[1] + " is " + ip);
 			}
 			return;
@@ -436,7 +436,7 @@ public class ConsoleCommandHandler {
 				}
 
 			} else {
-				ip = clientForIP.getIoSession().getRemoteAddress().toString().substring(1).split(":")[0];
+				ip = clientForIP.getClientIP();
 			}
 			if (ip != null && !ip.isEmpty()) {
 				try (Connection conn = DatabaseTools.getDbConnection();
