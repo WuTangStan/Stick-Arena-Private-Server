@@ -296,28 +296,33 @@ class OnTimedEvent implements Runnable {
     }
 
 
-	private Random random = new Random();
+		private Random random = new Random();
 
 		private void awardRandomPrize() {
-				CR.ClientsLock.readLock().lock();
-				try {
-						for (StickClient client : CR.getAllClients()) {
-								if (client.getGameKills() >= 3) {
-										int roll = random.nextInt(50) + 1; // Rolls between 1 and 50
-										LOGGER.info("Player '{}' rolled: {}", client.getName(), roll);
+			CR.ClientsLock.readLock().lock();
+			try {
+					for (StickClient client : CR.getAllClients()) {
+							if (client.getGameKills() < 3) continue;
+							
+							int roll = random.nextInt(300) + 1;
+							LOGGER.info("Player '{}' rolled: {}", client.getName(), roll);
 
-										if (roll == 1) { // 1/50 chance
-												LOGGER.info("Awarding random prize to '{}'", client.getName());
-												givePrize(client);
-										}
-								}
-						}
-				} finally {
-						CR.ClientsLock.readLock().unlock();
-				}
+							if (roll == 300) { 
+									// 1/300 chance for ultra-rare
+									LOGGER.info("Awarding ultra-rare prize to '{}'", client.getName());
+									giveUltraRarePrize(client);
+							} else if (roll <= 6) { 
+									// 1/50 chance rare prize
+									LOGGER.info("Awarding rare prize to '{}'", client.getName());
+									giveRarePrize(client);
+							}
+					}
+			} finally {
+					CR.ClientsLock.readLock().unlock();
+			}
 		}
 
-		private void givePrize(StickClient luckyClient) {
+		private void giveRarePrize(StickClient luckyClient) {
 				if (luckyClient == null) return;
 
 				try (Connection conn = DatabaseTools.getDbConnection();
@@ -338,6 +343,26 @@ class OnTimedEvent implements Runnable {
 						LOGGER.info("SQL Exception when trying to award prize: ", e);
 				}
 		}
+
+		private void giveUltraPrize(StickClient luckyClient) {
+    if (luckyClient == null) return;
+
+    try (Connection conn = DatabaseTools.getDbConnection();
+         PreparedStatement ps = conn.prepareStatement(
+             "UPDATE users SET ultraredeemable = ultraredeemable + 1 WHERE UID = ?")) {
+
+        ps.setInt(1, luckyClient.getDbID());
+        int updatedRows = ps.executeUpdate();
+        if (updatedRows > 0) {
+            LOGGER.info("ULTRA RARE prize awarded to user: {}", luckyClient.getName());
+            luckyClient.writeCallbackMessage("🎉 You have won an ULTRA RARE prize! Contact a moderator to claim it");
+            Main.getLobbyServer().BroadcastAnnouncement2(luckyClient.getName() + " has won an ULTRA RARE prize!");
+        } else {
+            LOGGER.info("Failed to update ultraredeemable count for user: {}", luckyClient.getName());
+        }
+    } catch (SQLException e) {
+        LOGGER.info("SQL Exception when trying to award ULTRA RARE prize: ", e);
+    }
 
 		private void updateJoinedClients() {
 			try (Connection conn = DatabaseTools.getDbConnection()) {
