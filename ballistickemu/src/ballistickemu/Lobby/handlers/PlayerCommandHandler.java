@@ -199,11 +199,11 @@ public class PlayerCommandHandler {
 			}
 			return;
 		}
-		if (C_Splitted[0].equalsIgnoreCase("!redeemdgold") && client.getPass()) {
+		if (C_Splitted[0].equalsIgnoreCase("!redeemgold") && client.getPass()) {
 			client.getRedeemableDb();
 			if (client.getRedeemable() > 0) {
 				client.updateRedeemable(client.getRedeemable() - 1);
-				addSpinner(client, getArgs(CommandStr, "!redeemdgold"), 164);
+				addSpinner(client, getArgs(CommandStr, "!redeemgold"), 164);
 			} else {
 				client.writeCallbackMessage("Play more games for a chance to win a lucky prize");
 			}
