@@ -18,6 +18,7 @@ import ballistickemu.Lobby.handlers.ModCommandHandler;
 import ballistickemu.Lobby.handlers.PlayerCommandHandler;
 import ballistickemu.Tools.DatabaseTools;
 import ballistickemu.Tools.StickPacketMaker;
+import ballistickemu.Tools.PerformanceMonitor;
 import ballistickemu.Types.StickClient;
 import ballistickemu.Types.StickColour;
 import ballistickemu.Types.StickItem;
@@ -507,6 +508,18 @@ public class ConsoleCommandHandler {
 			}
 
 			return;
+		} else if (args[0].equalsIgnoreCase("performance")) {
+			if (args.length == 1) {
+				LOGGER.info(PerformanceMonitor.getPerformanceSummary());
+			} else if (args[1].equalsIgnoreCase("reset")) {
+				PerformanceMonitor.resetCounters();
+				LOGGER.info("Performance counters reset");
+			} else if (args[1].equalsIgnoreCase("dbpool")) {
+				LOGGER.info(DatabaseTools.getConnectionPoolStatus());
+			} else {
+				LOGGER.info("Usage: performance [reset|dbpool]");
+			}
+			return;
 		} else if (args[0].equalsIgnoreCase("help")) {
 			LOGGER.info("modpromote          Promotes user to moderator.");
 			LOGGER.info("moddemote           Demotes user from moderator.");
@@ -535,6 +548,7 @@ public class ConsoleCommandHandler {
 			LOGGER.info("credits             Modifies credits of given player.");
 			LOGGER.info("changename          Changes the player of given moderator.");
 			LOGGER.info("chatlog             Enables/Disables the logging of chat.");
+			LOGGER.info("performance         Shows performance metrics and database pool status.");
 			return;
 		} else if (args[0].equalsIgnoreCase("labpass")) {
 			if (args.length != 4) {

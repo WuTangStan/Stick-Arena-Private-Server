@@ -24,6 +24,7 @@ import ballistickemu.Tools.DatabaseTools;
 import ballistickemu.Tools.QuickplayTool;
 import ballistickemu.Tools.StickNetworkHandler;
 import ballistickemu.Tools.MemoryMetricsLogger;
+import ballistickemu.Tools.PerformanceMonitor;
  
 /**
  *
@@ -47,8 +48,8 @@ public class Main {
     	// this will force a reconfiguration
     	context.setConfigLocation(file.toURI());
     	
-    	// Start memory monitoring
-    	startMemoryMonitoring();
+    	// Start performance monitoring
+    	startPerformanceMonitoring();
     	
     	Properties ConfigProps = new Properties();
         try {
@@ -149,12 +150,12 @@ public class Main {
 		chatLogEnabled = enabled;
 	}
 
-    private static void startMemoryMonitoring() {
+    private static void startPerformanceMonitoring() {
         Thread monitorThread = new Thread(() -> {
             while (!Thread.currentThread().isInterrupted()) {
                 try {
-                    // Log detailed memory metrics
-                    MemoryMetricsLogger.logMemoryMetrics();
+                    // Log performance metrics
+                    PerformanceMonitor.logPerformanceMetrics();
                     
                     // Keep the existing memory monitoring for GC triggering
                     Runtime runtime = Runtime.getRuntime();
@@ -163,21 +164,13 @@ public class Main {
                     long usedMemory = totalMemory - freeMemory;
                     long maxMemory = runtime.maxMemory() / (1024 * 1024);
                     
-                    LOGGER.info("Memory Usage - Used: {} MB, Free: {} MB, Total: {} MB, Max: {} MB",
-                        new Object[] {
-                            Long.valueOf(usedMemory),
-                            Long.valueOf(freeMemory),
-                            Long.valueOf(totalMemory),
-                            Long.valueOf(maxMemory)
-                        });
-                    
                     // If memory usage is too high, trigger GC
                     if (usedMemory > (maxMemory * 0.85)) {
                         LOGGER.warn("High memory usage detected, triggering garbage collection");
                         System.gc();
                     }
                     
-                    Thread.sleep(300000); // Check every 5 minutes
+                    Thread.sleep(60000); // Check every minute for performance metrics
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     break;
@@ -185,6 +178,31 @@ public class Main {
             }
         });
         monitorThread.setDaemon(true);
+        monitorThread.setName("PerformanceMonitor");
         monitorThread.start();
+        
+        LOGGER.info("Performance monitoring started");
+        
+        // Add shutdown hook to properly close resources
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            LOGGER.info("Shutting down server...");
+            if (LS != null) {
+                // Close all client sessions
+                LS.getClientRegistry().getAllClients().forEach(client -> {
+                    try {
+                        if (client.getSession() != null) {
+                            client.getSession().close(true);
+                        }
+                    } catch (Exception e) {
+                        LOGGER.warn("Error closing client session during shutdown", e);
+                    }
+                });
+            }
+            
+            // Shutdown database connection pool
+            DatabaseTools.shutdownConnectionPool();
+            
+            LOGGER.info("Server shutdown complete");
+        }));
     }
 }

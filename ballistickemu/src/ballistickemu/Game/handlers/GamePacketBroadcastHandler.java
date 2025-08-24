@@ -20,6 +20,7 @@
 package ballistickemu.Game.handlers;
 
 import ballistickemu.Tools.StickPacketMaker;
+import ballistickemu.Tools.PerformanceMonitor;
 import ballistickemu.Types.StickClient;
 import ballistickemu.Types.StickPacket;
 import org.slf4j.Logger;
@@ -47,11 +48,30 @@ public class GamePacketBroadcastHandler {
             return;
         }
 
+        long startTime = System.currentTimeMillis();
+        
         try {
             totalPackets.incrementAndGet();
 
-            StickPacket packetToSend = StickPacketMaker.getBroadcastPacket(packet, client.getUID());
+            // Check for packet caching to reduce processing overhead
+            String cacheKey = packet + "_" + client.getUID();
+            StickPacket packetToSend = PACKET_CACHE.get(cacheKey);
+            
+            if (packetToSend == null) {
+                packetToSend = StickPacketMaker.getBroadcastPacket(packet, client.getUID());
+                // Cache the packet for reuse (limit cache size to prevent memory issues)
+                if (PACKET_CACHE.size() < 1000) {
+                    PACKET_CACHE.put(cacheKey, packetToSend);
+                }
+            } else {
+                cachedPackets.incrementAndGet();
+            }
+            
             client.getRoom().BroadcastToRoom(packetToSend);
+            
+            // Record lag spikes
+            long processingTime = System.currentTimeMillis() - startTime;
+            PerformanceMonitor.recordLagSpike(processingTime);
 
             // Periodically clear cache and log metrics
             if (packetCounter.incrementAndGet() % 1000 == 0) {
@@ -61,7 +81,7 @@ public class GamePacketBroadcastHandler {
                 int total = totalPackets.get();
                 int cached = cachedPackets.get();
                 if (total > 0) {
-                    double cacheHitRate = (total - cached) * 100.0 / total;
+                    double cacheHitRate = (cached * 100.0) / total;
                     LOGGER.info("Packet Cache Stats - Total: {}, Cache Hits: {}%", total, String.format("%.1f", cacheHitRate));
                 }
                 totalPackets.set(0);

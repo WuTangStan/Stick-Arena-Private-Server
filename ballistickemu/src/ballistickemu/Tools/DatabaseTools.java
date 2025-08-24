@@ -40,22 +40,46 @@ public class DatabaseTools {
 	public static String pass;
 	public static String server;
 	public static String database;
+	private static ConnectionPool connectionPool;
 	
 	public static void dbConnect() {
 		try {
 			Class.forName("com.mysql.jdbc.Driver");
-			LOGGER.info("Database connection initialized successfully");
+			
+			// Initialize connection pool
+			String url = "jdbc:mysql://" + server + "/" + database;
+			connectionPool = new ConnectionPool(url, user, pass, 15); // Start with 15 connections
+			
+			LOGGER.info("Database connection pool initialized successfully with 15 connections");
 		} catch (ClassNotFoundException e) {
 			LOGGER.error("Failed to initialize database connection", e);
 		}
 	}
 	
 	public static Connection getDbConnection() throws SQLException {
-		return DriverManager.getConnection(
-			"jdbc:mysql://" + server + "/" + database,
-			user,
-			pass
-		);
+		if (connectionPool == null) {
+			LOGGER.error("Connection pool not initialized, falling back to direct connection");
+			return DriverManager.getConnection(
+				"jdbc:mysql://" + server + "/" + database,
+				user,
+				pass
+			);
+		}
+		
+		long startTime = System.currentTimeMillis();
+		try {
+			Connection conn = connectionPool.getConnection();
+			long duration = System.currentTimeMillis() - startTime;
+			
+			// Record performance metrics
+			PerformanceMonitor.recordDbOperation(duration);
+			
+			return conn;
+		} catch (SQLException e) {
+			long duration = System.currentTimeMillis() - startTime;
+			PerformanceMonitor.recordDbOperation(duration);
+			throw e;
+		}
 	}
 	
 	public static void executeQuery(String query, QueryCallback callback) {
@@ -93,6 +117,20 @@ public class DatabaseTools {
 			return -1;
 		} finally {
 			lock.unlock();
+		}
+	}
+	
+	public static String getConnectionPoolStatus() {
+		if (connectionPool != null) {
+			return connectionPool.getPoolStatus();
+		}
+		return "Connection pool not initialized";
+	}
+	
+	public static void shutdownConnectionPool() {
+		if (connectionPool != null) {
+			connectionPool.shutdown();
+			LOGGER.info("Connection pool shutdown complete");
 		}
 	}
 	
