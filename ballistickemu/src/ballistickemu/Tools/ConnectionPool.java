@@ -10,6 +10,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 public class ConnectionPool {
     private static final Logger LOGGER = LoggerFactory.getLogger(ConnectionPool.class);
@@ -50,6 +55,7 @@ public class ConnectionPool {
         startValidationThread();
         
         LOGGER.info("Connection pool initialized with {} connections", initialPoolSize);
+        logPoolStatusToFile("Initialized", initialPoolSize);
     }
     
     private void initializePool(int initialSize) {
@@ -235,6 +241,21 @@ public class ConnectionPool {
             poolLock.unlock();
         }
         LOGGER.info("Connection pool shutdown complete");
+        logPoolStatusToFile("Shutdown", 0);
+    }
+    
+    private void logPoolStatusToFile(String action, int poolSize) {
+        try {
+            String timestamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
+            String logMessage = String.format("[%s] CONNECTION_POOL: %s - Pool Size: %d%n", 
+                timestamp, action, poolSize);
+            
+            try (PrintWriter writer = new PrintWriter(new FileWriter("performance_metrics.txt", true))) {
+                writer.print(logMessage);
+            }
+        } catch (IOException e) {
+            LOGGER.warn("Failed to log pool status to file", e);
+        }
     }
     
     public String getPoolStatus() {

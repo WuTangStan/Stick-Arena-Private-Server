@@ -182,6 +182,7 @@ public class Main {
         monitorThread.start();
         
         LOGGER.info("Performance monitoring started");
+        PerformanceMonitor.logServerStart();
         
         // Add shutdown hook to properly close resources
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
@@ -198,6 +199,9 @@ public class Main {
                     }
                 });
             }
+            
+            // Log final performance summary
+            PerformanceMonitor.logServerStop();
             
             // Shutdown database connection pool
             DatabaseTools.shutdownConnectionPool();

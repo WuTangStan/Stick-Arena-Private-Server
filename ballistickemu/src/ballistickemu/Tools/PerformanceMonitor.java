@@ -64,6 +64,33 @@ public class PerformanceMonitor {
             checkDatabasePerformance();
             lastDbCheck.set(currentTime);
         }
+        
+        // Log system health summary every 5 minutes
+        if (currentTime % 300000 < 60000) { // Every 5 minutes
+            logSystemHealthSummary();
+        }
+    }
+    
+    private static void logSystemHealthSummary() {
+        Runtime runtime = Runtime.getRuntime();
+        long usedMemory = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
+        long maxMemory = runtime.maxMemory() / (1024 * 1024);
+        double memoryUsage = (usedMemory * 100.0) / maxMemory;
+        
+        StringBuilder summary = new StringBuilder();
+        summary.append("=== SYSTEM HEALTH SUMMARY ===\n");
+        summary.append(String.format("Timestamp: %s%n", DATE_FORMAT.format(new Date())));
+        summary.append(String.format("Memory Usage: %.1f%% (%d MB / %d MB)%n", memoryUsage, usedMemory, maxMemory));
+        summary.append(String.format("Active Threads: %d%n", Thread.activeCount()));
+        summary.append(String.format("Total DB Operations: %d%n", totalDbOperations.get()));
+        summary.append(String.format("Slow DB Operations: %d%n", slowDbOperations.get()));
+        summary.append(String.format("Lag Spikes Detected: %d%n", lagSpikeCount.get()));
+        summary.append(String.format("Memory Spikes: %d%n", memorySpikeCount.get()));
+        summary.append(String.format("Thread Spikes: %d%n", threadSpikeCount.get()));
+        summary.append(String.format("DB Connection Errors: %d%n", dbConnectionErrors.get()));
+        summary.append("=============================\n");
+        
+        logToFile(summary.toString());
     }
     
     private static void checkMemoryUsage() {
@@ -95,9 +122,9 @@ public class PerformanceMonitor {
         
         lastUsedMemory = usedMemory;
         
-        // Log memory metrics
-        LOGGER.info("Memory Usage - Used: {} MB ({}%), Free: {} MB, Total: {} MB, Max: {} MB",
-            usedMemory, String.format("%.1f", memoryUsagePercent), freeMemory, totalMemory, maxMemory);
+        // Log memory metrics to file (not console)
+        logToFile(String.format("Memory Usage - Used: %d MB (%.1f%%), Free: %d MB, Total: %d MB, Max: %d MB",
+            usedMemory, memoryUsagePercent, freeMemory, totalMemory, maxMemory));
     }
     
     private static void checkThreadCount() {
@@ -123,8 +150,8 @@ public class PerformanceMonitor {
         
         lastThreadCount = threadCount;
         
-        // Log thread metrics
-        LOGGER.info("Thread Count: {} (Peak: {})", threadCount, threadBean.getPeakThreadCount());
+        // Log thread metrics to file (not console)
+        logToFile(String.format("Thread Count: %d (Peak: %d)", threadCount, threadBean.getPeakThreadCount()));
     }
     
     private static void checkDatabasePerformance() {
@@ -156,9 +183,20 @@ public class PerformanceMonitor {
                 String.format("Database connection error: %s", e.getMessage()));
         }
         
-        // Log database performance summary
-        LOGGER.info("Database Performance - Total Operations: {}, Slow Operations: {}, Connection Errors: {}",
-            totalDbOperations.get(), slowDbOperations.get(), dbConnectionErrors.get());
+        // Log detailed database performance to file (not console)
+        logToFile("=== DATABASE PERFORMANCE CHECK ===");
+        logToFile(String.format("Total Operations: %d", totalDbOperations.get()));
+        logToFile(String.format("Slow Operations (>100ms): %d", slowDbOperations.get()));
+        logToFile(String.format("Connection Errors: %d", dbConnectionErrors.get()));
+        
+        // Get connection pool status if available
+        try {
+            String poolStatus = DatabaseTools.getConnectionPoolStatus();
+            logToFile(String.format("Connection Pool: %s", poolStatus));
+        } catch (Exception e) {
+            logToFile("Connection Pool: Status unavailable");
+        }
+        logToFile("=================================");
     }
     
     public static void recordDbOperation(long durationMs) {
@@ -186,7 +224,21 @@ public class PerformanceMonitor {
             LOGGER.error("Failed to write performance log", e);
         }
         
-        LOGGER.warn("Performance Issue - {}: {}", issueType, details);
+        // Only log critical issues to console, everything else goes to file
+        if (issueType.contains("ERROR") || issueType.contains("CRITICAL")) {
+            LOGGER.warn("Performance Issue - {}: {}", issueType, details);
+        }
+    }
+    
+    private static void logToFile(String message) {
+        String timestamp = DATE_FORMAT.format(new Date());
+        String logMessage = String.format("[%s] INFO: %s%n", timestamp, message);
+        
+        try (PrintWriter writer = new PrintWriter(new FileWriter(PERFORMANCE_LOG_FILE, true))) {
+            writer.print(logMessage);
+        } catch (IOException e) {
+            LOGGER.error("Failed to write to performance log", e);
+        }
     }
     
     public static String getPerformanceSummary() {
@@ -219,7 +271,25 @@ public class PerformanceMonitor {
         totalDbOperations.set(0);
         slowDbOperations.set(0);
         dbConnectionErrors.set(0);
+        
+        String timestamp = DATE_FORMAT.format(new Date());
+        logToFile(String.format("[%s] PERFORMANCE COUNTERS RESET", timestamp));
         LOGGER.info("Performance counters reset");
+    }
+    
+    public static void logServerStart() {
+        String timestamp = DATE_FORMAT.format(new Date());
+        logToFile(String.format("[%s] ========================================", timestamp));
+        logToFile(String.format("[%s] SERVER STARTED - Performance monitoring active", timestamp));
+        logToFile(String.format("[%s] ========================================", timestamp));
+    }
+    
+    public static void logServerStop() {
+        String timestamp = DATE_FORMAT.format(new Date());
+        logToFile(String.format("[%s] ========================================", timestamp));
+        logToFile(String.format("[%s] SERVER STOPPING - Final performance summary", timestamp));
+        logToFile(String.format("[%s] %s", timestamp, getPerformanceSummary()));
+        logToFile(String.format("[%s] ========================================", timestamp));
     }
 }
 
